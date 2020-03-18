@@ -18,12 +18,12 @@
 (defmacro with-transaction
   `Wrap the current database connection in a transaction`
   [& body]
-  ~(pq/tx (dyn :db/connection) {}
+  ~(pq/tx (,dyn :db/connection) {}
      (try
        ,;body
-       (pq/commit (dyn :db/connection) :success)
+       (pq/commit (,dyn :db/connection) :success)
       ([err fib]
-       (pq/rollback (dyn :db/connection))
+       (pq/rollback (,dyn :db/connection))
        (propagate err fib)))))
 
 
