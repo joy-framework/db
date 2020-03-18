@@ -1,0 +1,30 @@
+#!/usr/bin/env janet
+
+(import db)
+
+(def args (dyn :args))
+
+(def usage
+  "Usage"
+``` [action]
+
+  Actions:
+    help                           - Print this usage information
+    new database:sqlite <name>     - Create a new sqlite database
+    new database:postgres <name>   - Create a new postgres database
+    new table <name>               - Create a new migration with create table
+    new migration <name>           - Create a new empty migration file
+    migrate                        - Run all pending migration files against the database
+    rollback                       - Rolls back the most recent migration
+    version                        - Print the current version
+```)
+
+(def action (get args 1))
+(def options (drop 2 args))
+
+(case action
+  "new" (db/new ;options)
+  "migrate" (db/migrate)
+  "rollback" (db/rollback)
+  "version" (print db/version)
+  (print "db" usage))
