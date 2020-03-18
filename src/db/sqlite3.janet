@@ -27,9 +27,9 @@
      (try
        ,;body
        (sqlite3/eval (,dyn :db/connection) "COMMIT;")
-       ([err]
+       ([err fib]
         (sqlite3/eval (,dyn :db/connection) "ROLLBACK;")
-        (error err)))))
+        (propagate err fib)))))
 
 
 (defn query
