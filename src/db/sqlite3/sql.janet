@@ -127,7 +127,7 @@
         vals (as-> (map keys arr) ?
                    (mapcat (fn [ks] (string "(" (string/join
                                                  (map (fn [_] (string "?")) ks)
-                                                 ", ")
+                                                 ",")
                                             ")")) ?)
                   (string/join ? ", "))]
     (string "insert into " (snake-case table-name) " (" columns ") values " vals)))
@@ -139,14 +139,20 @@
   (mapcat values arr))
 
 
+(defn update-param [[key val]]
+  (let [column (snake-case key)
+        value (if (= 'null val)
+                "null"
+                (string/format ":%s" column))]
+    (string/format "%s = %s" column value)))
+
+
 (defn update
   "Returns an update sql string from a dictionary of params representing the set portion of the update statement"
   [table-name params]
   (let [columns (as-> (pairs params) ?
-                      (map |(string (-> $ first snake-case) " = " (if (= 'null (last $))
-                                                                    "null"
-                                                                    (string ":" (-> $ first snake-case))))) ?
-                     (string/join ? ", "))]
+                      (map update-param ?)
+                      (string/join ? ", "))]
     (string "update " (snake-case table-name) " set " columns " where id = :id")))
 
 
