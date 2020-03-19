@@ -1,8 +1,27 @@
 (import path)
 (import ./helper :prefix "")
+(import ./core :as db)
 
 
-(defn timestamp
+(defn- created-at []
+  (if sqlite?
+    "created_at integer not null default(strftime('%s', 'now'))"
+    "created_at timestamptz not null default(now())"))
+
+
+(defn- updated-at []
+  (if sqlite?
+    "updated_at integer"
+    "updated_at timestamptz"))
+
+
+(defn- primary-key []
+  (if sqlite?
+    "id integer primary key"
+    "id serial primary key"))
+
+
+(defn- timestamp
   "Generate a timestamp for migration files"
   []
   (let [date (os/date)
@@ -30,10 +49,90 @@
 (defn create-table-migration [args]
   (let [table-name (snake-case (first args))
         columns (-> (apply array (drop 1 args))
-                    (array/insert 0 "id integer primary key")
-                    (array/push "created_at integer not null default(strftime('%s', 'now'))")
-                    (array/push "updated_at integer"))
+                    (array/insert 0 (primary-key))
+                    (array/push (created-at))
+                    (array/push (updated-at)))
         columns-sql (string/join columns ",\n  ")]
     (create-migration (string "create-table-" table-name)
      {:up (string/format "create table %s (\n  %s\n)" table-name columns-sql)
       :down (string/format "drop table %s" table-name)})))
+
+
+(def- up-token "-- up")
+(def- down-token "-- down")
+(def- migrations-dir "db/migrations")
+
+
+(defn- parse-migration [sql]
+  (let [parts (string/split "\n" sql)
+        up-index (find-index |(= $ up-token) parts)
+        down-index (find-index |(= $ down-token) parts)
+        up-sql (-> (array/slice parts (inc up-index) down-index)
+                   (string/join "\n"))
+        down-sql (-> (array/slice parts (inc down-index) -1)
+                     (string/join "\n"))]
+    {:up up-sql
+     :down down-sql}))
+
+
+(defn- file-migration-map []
+  (->> (os/dir migrations-dir)
+       (mapcat |(tuple (-> (string/split "-" $)
+                           (first))
+                       $))
+       (apply struct)))
+
+
+(defn- db-versions []
+  (->> (db/query "select version from schema_migrations order by version")
+       (map |(get $ :version))))
+
+
+(defn- pending-migrations [db-versions file-migration-map]
+  (let [versions (->> (array/concat @[] (keys file-migration-map) db-versions)
+                      (frequencies)
+                      (pairs)
+                      (filter (fn [[_ v]] (= v 1)))
+                      (map first)
+                      (sort))]
+    (map |(get file-migration-map $) versions)))
+
+
+(defn migrate []
+  (db/with-connection
+    (db/with-transaction
+      (db/execute "create table if not exists schema_migrations (version text primary key)")
+      (let [migrations (pending-migrations (db-versions) (file-migration-map))]
+        (loop [migration :in migrations]
+          (let [version (-> (string/split "-" migration)
+                            (first))
+                filename (path/join migrations-dir migration)
+                up (as-> filename ?
+                         (file/read-all ?)
+                         (parse-migration ?)
+                         (get ? :up))]
+            (print "Migrating [" migration "]...")
+            (print up)
+            (db/execute up)
+            (db/execute "insert into schema_migrations (version) values (:version)" {:version version})
+            (db/write-schema-file)
+            (print "Successfully migrated [" migration "]")))))))
+
+
+(defn rollback []
+  (db/with-connection
+    (db/with-transaction
+      (db/execute "create table if not exists schema_migrations (version text primary key)")
+      (let [version (last (db-versions))
+            migration (get (file-migration-map) version)
+            filename (string migrations-dir "/" migration)
+            down (as-> filename ?
+                       (file/read-all ?)
+                       (parse-migration ?)
+                       (get ? :down))]
+        (print "Rolling back [" migration "]...")
+        (print down)
+        (db/execute down)
+        (db/execute "delete from schema_migrations where version = :version" {:version version})
+        (db/write-schema-file)
+        (print "Successfully rolled back [" migration "]")))))

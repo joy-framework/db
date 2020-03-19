@@ -1,15 +1,27 @@
-(defn file/touch
-  "Creates a new empty file with the given filename"
-  [filename]
-  (with [f (file/open filename :w)]
-    (file/write f)))
+(def database-url (os/getenv "DATABASE_URL"))
+(def postgres? (string/has-prefix? "postgres" (or database-url "")))
+(def sqlite? (not postgres?))
 
 
 (defn file/write-all
   "Writes a new file with the given content"
-  [filename content]
+  [filename &opt content]
+  (default content "")
   (with [f (file/open filename :w)]
     (file/write f content)))
+
+
+(defn file/touch
+  "Creates a new empty file with the given filename"
+  [filename]
+  (file/write-all filename))
+
+
+(defn file/read-all
+  "Returns content of filename"
+  [filename]
+  (with [f (file/open filename :r)]
+    (file/read f :all)))
 
 
 (defn kebab-case

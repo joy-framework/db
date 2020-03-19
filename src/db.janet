@@ -1,14 +1,8 @@
-(import ./db/helper :prefix "")
-(import ./db/migrator :as migrator)
+(import ./db/helper :prefix "" :export true)
+(import ./db/migrator :prefix "" :export true)
+(import ./db/core :prefix "" :export true)
 
-(def database-url (os/getenv "DATABASE_URL"))
-
-# conditional imports
-(if (and database-url
-         (string/has-prefix? "postgres" database-url))
-  (import ./db/pg :prefix "" :export true)
-  (import ./db/sqlite3 :prefix "" :export true))
-
+(def version "0.1.0")
 
 (defn new
   "Creates migrations and databases"
@@ -17,10 +11,5 @@
     "database" (file/touch (first args))
     "database:sqlite" (file/touch (first args))
     "database:postgres" (os/shell (string "createdb " (first args)))
-    "migration" (migrator/create-migration (first args))
-    "table" (migrator/create-table-migration args)))
-
-
-(defn migrate [])
-(defn rollback [])
-(def version "0.1.0")
+    "migration" (create-migration (first args))
+    "table" (create-table-migration args)))

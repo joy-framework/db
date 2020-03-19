@@ -1,12 +1,12 @@
 (import sqlite3)
-(import ./sqlite3/sql :as sql)
-(import ./helper :prefix "")
-
-
-(def database-url (os/getenv "DATABASE_URL"))
+(import ./sql :as sql)
+(import ../helper :prefix "")
 
 
 (defn connect []
+  (unless database-url
+    (error "DATABASE_URL environment variable isn't set"))
+
   (setdyn :db/connection (sqlite3/open database-url))
   (let [db (dyn :db/connection)]
     (sqlite3/eval db "PRAGMA foreign_keys=1;")
@@ -19,17 +19,25 @@
   (setdyn :db/connection nil))
 
 
+(defmacro with-connection
+  [& body]
+  ~(do
+     (,connect)
+     ,;body
+     (,disconnect)))
+
+
 (defmacro with-transaction
   `A macro that wraps database statements in a transaction`
   [& body]
-  ~(do
-     (sqlite3/eval (,dyn :db/connection) "BEGIN TRANSACTION;")
-     (try
+  ~(try
+     (do
+       (,sqlite3/eval (,dyn :db/connection) "BEGIN TRANSACTION;")
        ,;body
-       (sqlite3/eval (,dyn :db/connection) "COMMIT;")
-       ([err fib]
-        (sqlite3/eval (,dyn :db/connection) "ROLLBACK;")
-        (propagate err fib)))))
+       (,sqlite3/eval (,dyn :db/connection) "COMMIT;"))
+     ([err fib]
+      (,sqlite3/eval (,dyn :db/connection) "ROLLBACK;")
+      (propagate err fib))))
 
 
 (defn query
@@ -363,3 +371,11 @@
         sql (sql/delete-all table-name params)]
     (execute sql where-params)
     rows))
+
+
+(defn write-schema-file []
+  (let [rows (query "select sql from sqlite_master where sql is not null order by rootpage")
+        schema-sql (as-> rows ?
+                         (map |(get $ :sql) ?)
+                         (string/join ? "\n"))]
+    (file/write-all "db/schema.sql" schema-sql)))
