@@ -7,11 +7,13 @@ __A humble database library for janet__
 jpm install https://github.com/joy-framework/db
 ```
 
-You also need one of the following libs:
+You also need one of the following libs for a database driver:
 
 ```sh
+# for postgres
 jpm install http://github.com/andrewchambers/janet-pq
-# or
+
+# or this for sqlite
 jpm install http://github.com/janet-lang/sqlite3
 ```
 
