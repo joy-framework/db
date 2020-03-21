@@ -167,7 +167,25 @@
 
   (db/insert :todo {:name "name3"})
 
-  => {:id 3 :name "name3" :completed false}`
+  => @{:id 3 :name "name3" :completed false}`
   [table-name params]
   (let [sql (sql/insert table-name params)]
     (row sql params)))
+
+
+(defn fetch
+  `Takes a path into the db and optional args
+   and returns the first row that matches or nil if none exists.
+
+  Example:
+
+  (import db)
+
+  (db/fetch [:todo 1])
+
+  => @{:id 1 :name "name"}`
+  [path & args]
+  (let [args (table ;args)
+        sql (sql/fetch path (merge args {:limit 1}))
+        params (sql/fetch-params path)]
+    (pq/row (dyn :db/connection) sql ;params)))
