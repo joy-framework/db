@@ -82,6 +82,49 @@
     (pq/all (dyn :db/connection) sql ;pq-params)))
 
 
+(defn row
+  `Executes a query against a postgres database and
+   returns the first row.
+
+  Example:
+
+  (import db)
+
+  (db/row "select * from todos where id = :id" {:id 1})
+
+  => {:id 1 :name "name"}`
+  [sql &opt params]
+  (default params {})
+  (let [sql (string sql ";")
+        matches (peg/match (capture param-peg) sql)
+        pg-params (pg-params matches)
+        sql (first (peg/match (replacer param-peg pg-params) sql))
+        pq-params (pg-param-args matches params)]
+    (pq/row (dyn :db/connection) sql ;pq-params)))
+
+
+(defn val
+  `Executes a query against a postgres database and
+   returns the literal value from the select or
+   returning statement.
+
+  Example:
+
+  (import db)
+
+  (db/val "select name from todos where id = :id" {:id 1})
+
+  => "name"`
+  [sql &opt params]
+  (default params {})
+  (let [sql (string sql ";")
+        matches (peg/match (capture param-peg) sql)
+        pg-params (pg-params matches)
+        sql (first (peg/match (replacer param-peg pg-params) sql))
+        pq-params (pg-param-args matches params)]
+    (pq/val (dyn :db/connection) sql ;pq-params)))
+
+
 (defn execute
   `Executes a query against a postgres database.
 
@@ -111,3 +154,20 @@
 
 (defn write-schema-file []
   (os/shell (string "pg_dump --schema-only " database-url " > db/schema.sql")))
+
+
+(defn insert
+  `Takes a table name and a dictionary,
+  inserts the dictionary as rows/columns into the database
+  and returns the inserted row from the database.
+
+  Example:
+
+  (import db)
+
+  (db/insert :todo {:name "name3"})
+
+  => {:id 3 :name "name3" :completed false}`
+  [table-name params]
+  (let [sql (sql/insert table-name params)]
+    (row sql params)))
