@@ -12,15 +12,24 @@
   (setdyn :db/connection nil))
 
 
+(defmacro with-connection
+  [& body]
+  ~(do
+     (,connect)
+     ,;body
+     (,disconnect)))
+
+
 (defmacro with-transaction
   `Wrap the current database connection in a transaction`
   [& body]
-  ~(pq/tx (,dyn :db/connection) {}
+  ~(,pq/txn (,dyn :db/connection) {}
      (try
-       ,;body
-       (pq/commit (,dyn :db/connection) :success)
+       (do
+         ,;body)
        ([err fib]
-        (pq/rollback (,dyn :db/connection))
+        (printf "%q" err)
+        (,pq/rollback (,dyn :db/connection))
         (propagate err fib)))))
 
 
@@ -68,7 +77,7 @@
   (let [sql (string sql ";")
         matches (peg/match (capture param-peg) sql)
         pg-params (pg-params matches)
-        sql (peg/match (replacer param-peg pg-params) sql)
+        sql (first (peg/match (replacer param-peg pg-params) sql))
         pq-params (pg-param-args matches params)]
     (pq/all (dyn :db/connection) sql ;pq-params)))
 
@@ -95,10 +104,9 @@
   (let [sql (string sql ";")
         matches (peg/match (capture param-peg) sql)
         pg-params (pg-params matches)
-        sql (peg/match (replacer param-peg pg-params) sql)
-        pq-params (pg-param-args matches params)
-        db (dyn :db/connection)]
-    (pq/exec db sql params)))
+        sql (first (peg/match (replacer param-peg pg-params) sql))
+        pq-params (pg-param-args matches params)]
+    (pq/exec (dyn :db/connection) sql ;pq-params)))
 
 
 (defn write-schema-file []

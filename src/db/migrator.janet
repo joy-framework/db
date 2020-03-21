@@ -123,13 +123,14 @@
   (db/with-connection
     (db/with-transaction
       (db/execute "create table if not exists schema_migrations (version text primary key)")
-      (let [version (last (db-versions))
-            migration (get (file-migration-map) version)
-            filename (string migrations-dir "/" migration)
-            down (as-> filename ?
-                       (file/read-all ?)
-                       (parse-migration ?)
-                       (get ? :down))]
+      (when-let [versions (db-versions)
+                 version (get (reverse versions) 0)
+                 migration (get (file-migration-map) version)
+                 filename (string migrations-dir "/" migration)
+                 down (as-> filename ?
+                            (file/read-all ?)
+                            (parse-migration ?)
+                            (get ? :down))]
         (print "Rolling back [" migration "]...")
         (print down)
         (db/execute down)
