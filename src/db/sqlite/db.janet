@@ -231,7 +231,7 @@
 
 
 (defn insert
-  `Takes an optional db connection, a table name and a dictionary,
+  `Takes a table name and a dictionary,
   inserts the dictionary as rows/columns into the database
   and returns the inserted row from the database.
 
