@@ -58,6 +58,17 @@
   (peg/compile ~(% (any (+ (/ (<- ,patt) ,subst) (<- 1))))))
 
 
+(defn- pq-sql [sql params]
+  (let [matches (peg/match (capture param-peg) sql)
+        pg-params (pg-params matches)]
+    (first (peg/match (replacer param-peg pg-params) sql))))
+
+
+(defn- pq-params [sql params]
+  (let [matches (peg/match (capture param-peg) sql)]
+    (pg-param-args matches params)))
+
+
 (defn query
   `Executes a query against a postgres database.
 
@@ -74,55 +85,8 @@
   => [{:id 1 :name "name"} {...} ...]`
   [sql &opt params]
   (default params {})
-  (let [sql (string sql ";")
-        matches (peg/match (capture param-peg) sql)
-        pg-params (pg-params matches)
-        sql (first (peg/match (replacer param-peg pg-params) sql))
-        pq-params (pg-param-args matches params)]
-    (pq/all (dyn :db/connection) sql ;pq-params)))
-
-
-(defn row
-  `Executes a query against a postgres database and
-   returns the first row.
-
-  Example:
-
-  (import db)
-
-  (db/row "select * from todos where id = :id" {:id 1})
-
-  => {:id 1 :name "name"}`
-  [sql &opt params]
-  (default params {})
-  (let [sql (string sql ";")
-        matches (peg/match (capture param-peg) sql)
-        pg-params (pg-params matches)
-        sql (first (peg/match (replacer param-peg pg-params) sql))
-        pq-params (pg-param-args matches params)]
-    (pq/row (dyn :db/connection) sql ;pq-params)))
-
-
-(defn val
-  `Executes a query against a postgres database and
-   returns the literal value from the select or
-   returning statement.
-
-  Example:
-
-  (import db)
-
-  (db/val "select name from todos where id = :id" {:id 1})
-
-  => "name"`
-  [sql &opt params]
-  (default params {})
-  (let [sql (string sql ";")
-        matches (peg/match (capture param-peg) sql)
-        pg-params (pg-params matches)
-        sql (first (peg/match (replacer param-peg pg-params) sql))
-        pq-params (pg-param-args matches params)]
-    (pq/val (dyn :db/connection) sql ;pq-params)))
+  (let [sql (string sql ";")]
+    (pq/all (dyn :db/connection) (pq-sql sql params) ;(pq-params sql params))))
 
 
 (defn execute
@@ -144,16 +108,62 @@
   => Returns the last inserted row id, in this case 1`
   [sql &opt params]
   (default params {})
-  (let [sql (string sql ";")
-        matches (peg/match (capture param-peg) sql)
-        pg-params (pg-params matches)
-        sql (first (peg/match (replacer param-peg pg-params) sql))
-        pq-params (pg-param-args matches params)]
-    (pq/exec (dyn :db/connection) sql ;pq-params)))
+  (let [sql (string sql ";")]
+    (pq/exec (dyn :db/connection) (pq-sql sql params) ;(pq-params sql params))))
 
 
 (defn write-schema-file []
   (os/shell (string "pg_dump --schema-only " database-url " > db/schema.sql")))
+
+
+(defn row
+  `Executes a query against a postgres database and
+   returns the first row.
+
+  Example:
+
+  (import db)
+
+  (db/row "select * from todos where id = $1" 1)
+
+  => {:id 1 :name "name"}`
+  [sql & params]
+  (let [sql (string sql ";")]
+    (pq/row (dyn :db/connection) sql ;params)))
+
+
+(defn val
+  `Executes a query against a postgres database and
+   returns the literal value from the select or
+   returning statement.
+
+  Example:
+
+  (import db)
+
+  (db/val "select name from todos where id = $1" 1)
+
+  => "todo #1"`
+  [sql & params]
+  (let [sql (string sql ";")]
+    (pq/val (dyn :db/connection) sql ;params)))
+
+
+(defn all
+  `Executes a query against a postgres database and
+   returns the literal value from the select or
+   returning statement.
+
+  Example:
+
+  (import db)
+
+  (db/all "select name from todos" 1)
+
+  => @[@{:id 1 :tag-name "tag1"} {:id 2 :tag-name "tag2"}]`
+  [sql & params]
+  (let [sql (string sql ";")]
+    (pq/all (dyn :db/connection) sql ;params)))
 
 
 (defn insert
@@ -170,7 +180,7 @@
   => @{:id 3 :name "name3" :completed false}`
   [table-name params]
   (let [sql (sql/insert table-name params)]
-    (row sql params)))
+    (row (pq-sql sql params) ;(pq-params sql params))))
 
 
 (defn fetch
@@ -188,4 +198,4 @@
   (let [args (table ;args)
         sql (sql/fetch path (merge args {:limit 1}))
         params (sql/fetch-params path)]
-    (pq/row (dyn :db/connection) sql ;params)))
+    (row sql ;params)))
