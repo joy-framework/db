@@ -85,3 +85,41 @@
            (fetch-options args)] ?
           (filter string? ?)
           (string/join ? " "))))
+
+
+(defn null? [val]
+  (= 'null val))
+
+
+(defn where-op
+  "Takes kvs and returns $x where clause parameters"
+  [[k v] counter]
+  (var counter* counter)
+  (if (= v 'null)
+    "is null"
+    (string "= $" (++ counter*))))
+
+
+(defn where-clause
+  "Takes either a string or a dictionary and returns a where clause with and or that same string"
+  [params]
+  (if (string? params)
+    params
+    (do
+      (var i 0)
+      (as-> (pairs params) ?
+            (map |(string (-> $ first snake-case) " " (where-op $ i)) ?)
+            (string/join ? " and ")))))
+
+
+(defn from
+  "Takes a table name and where clause params and optional order/limit/offset options and returns a select sql string"
+  [table-name &opt args]
+  (let [where-params (get args :where)
+        where (when (truthy? where-params)
+               (string "where " (where-clause where-params)))]
+    (as-> [(string "select * from " (snake-case table-name))
+           where
+           (fetch-options args)] ?
+          (filter string? ?)
+          (string/join ? " "))))

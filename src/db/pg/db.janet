@@ -219,3 +219,29 @@
   (let [sql (sql/fetch path (table ;args))
         params (sql/fetch-params path)]
     (all sql ;params)))
+
+
+(defn from
+  `Takes a table name and optional args
+   and returns all of the rows that match the query
+   or an empty array if no rows match.
+
+  Example:
+
+  (import db)
+
+  (db/from :todo :where {:completed true} :order "name" :limit 2)
+
+  # or
+
+  (db/from :todo :where {:completed true} :order "name desc" :limit 10)
+
+  => @[@{:id 1 name "name" :completed true} @{:id 1 :name "name2" :completed true}]`
+  [table-name & args]
+  (let [opts (table ;args)
+        sql (sql/from table-name opts)
+        params (get opts :where {})
+        params (as-> params ?
+                     (values ?)
+                     (filter |(not (sql/null? $)) ?))]
+    (all sql ;params)))
