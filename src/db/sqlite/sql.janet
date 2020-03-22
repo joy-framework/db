@@ -26,11 +26,11 @@
   [args]
   (when (not (nil? args))
     (let [{:order order :limit limit :offset offset} args
-          order-by (when (not (nil? order)) (string "order by " order))
-          limit (when (not (nil? limit)) (string "limit " limit))
-          offset (when (not (nil? offset)) (string "offset " offset))]
+          order-by (when order (string "order by " order))
+          limit (when limit (string "limit " limit))
+          offset (when offset (string "offset " offset))]
       (as-> [order-by limit offset] ?
-            (filter |(not (nil? $)) ?)
+            (filter string? ?)
             (string/join ? " ")))))
 
 
@@ -42,7 +42,7 @@
     (as-> [(string "select * from " (snake-case table-name))
            where
            (fetch-options args)] ?
-          (filter |(not (nil? $)) ?)
+          (filter string? ?)
           (string/join ? " "))))
 
 
@@ -56,7 +56,7 @@
         inner (drop-last inner)
         cloned-inner (interleave inner inner)]
     (->> [first-val cloned-inner last-val]
-         (filter |(not (nil? $)))
+         (filter truthy?)
          (mapcat identity))))
 
 
@@ -100,7 +100,7 @@
            (fetch-joins keywords)
            where
            (fetch-options args)] ?
-          (filter |(not (nil? $)) ?)
+          (filter string? ?)
           (string/join ? " "))))
 
 
