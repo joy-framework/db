@@ -199,3 +199,23 @@
         sql (sql/fetch path (merge args {:limit 1}))
         params (sql/fetch-params path)]
     (row sql ;params)))
+
+
+(defn fetch-all
+  `Takes a path into the db and optional args
+   and returns all of the rows that match or an empty array if
+   no rows match.
+
+  Example:
+
+  (import db)
+
+  (db/fetch-all [:todo 1 :tag] :order "tag_name asc")
+
+  (db/fetch-all [:todo 1] :limit 1 :order "tag_name desc")
+
+  => @[@{:id 1 :tag-name "tag1"} {:id 2 :tag-name "tag2"}]`
+  [path & args]
+  (let [sql (sql/fetch path (table ;args))
+        params (sql/fetch-params path)]
+    (all sql ;params)))
