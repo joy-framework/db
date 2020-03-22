@@ -163,7 +163,7 @@
 
 
 (defn from
-  `Takes an optional db connection, a table name and optional args
+  `Takes a table name and optional args
    and returns all of the rows that match the query
    or an empty array if no rows match.
 
