@@ -214,7 +214,7 @@
 
   (db/fetch-all [:todo 1] :limit 1 :order "tag_name desc")
 
-  => @[@{:id 1 :tag-name "tag1"} {:id 2 :tag-name "tag2"}]`
+  => @[@{:id 1 :tag-name "tag1"} @{:id 2 :tag-name "tag2"}]`
   [path & args]
   (let [sql (sql/fetch path (table ;args))
         params (sql/fetch-params path)]
