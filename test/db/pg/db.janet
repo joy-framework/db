@@ -45,6 +45,15 @@
 
   (test "from"
     (deep= @[@{:id 2 :name "name" :code "code"}]
-           (db/from :account :where {:code "code"} :order "id"))))
+           (db/from :account :where {:code "code"} :order "id")))
+
+  (test "find-by"
+    (deep= @{:id 2 :name "name" :code "code"}
+           (db/find-by :account :where {:code "code"})))
+
+  (test "find"
+    (deep= @{:id 2 :name "name" :code "code"}
+           (db/find :account 2))))
+
 
 (db/disconnect)

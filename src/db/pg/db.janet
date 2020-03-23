@@ -245,3 +245,44 @@
                      (values ?)
                      (filter |(not (sql/null? $)) ?))]
     (all sql ;params)))
+
+
+(defn find-by
+  `Takes a table name and optional args
+   and returns either nil or the first row from the query.
+
+  Example:
+
+  (import db)
+
+  (db/find-by :todo :where {:completed true} :order "name")
+
+  # or
+
+  (db/find-by :todo :where {:completed true} :order "name desc")
+
+  => {:id 1 name "name" :completed true}`
+  [table-name & args]
+  (let [opts (table ;args)
+        sql (sql/from table-name opts)
+        params (get opts :where {})
+        params (as-> params ?
+                     (values ?)
+                     (filter |(not (sql/null? $)) ?))]
+    (row sql ;params)))
+
+
+(defn find
+  `Takes a table name and optional args
+   and returns either nil or the first row by primary key.
+
+  Example:
+
+  (import db)
+
+  (db/find :todo 1)
+
+  => {:id 1 name "name" :completed true}`
+  [table-name id]
+  (let [sql (sql/from table-name {:where {:id id} :limit 1})]
+    (row sql id)))
