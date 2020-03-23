@@ -166,23 +166,6 @@
     (pq/all (dyn :db/connection) sql ;params)))
 
 
-(defn insert
-  `Takes a table name and a dictionary,
-  inserts the dictionary as rows/columns into the database
-  and returns the inserted row from the database.
-
-  Example:
-
-  (import db)
-
-  (db/insert :todo {:name "name3"})
-
-  => @{:id 3 :name "name3" :completed false}`
-  [table-name params]
-  (let [sql (sql/insert table-name params)]
-    (row (pq-sql sql params) ;(pq-params sql params))))
-
-
 (defn fetch
   `Takes a path into the db and optional args
    and returns the first row that matches or nil if none exists.
@@ -286,3 +269,20 @@
   [table-name id]
   (let [sql (sql/from table-name {:where {:id id} :limit 1})]
     (row sql id)))
+
+
+(defn insert
+  `Takes a table name and a dictionary,
+  inserts the dictionary as rows/columns into the database
+  and returns the inserted row from the database.
+
+  Example:
+
+  (import db)
+
+  (db/insert :todo {:name "name3"})
+
+  => @{:id 3 :name "name3" :completed false}`
+  [table-name params]
+  (let [sql (sql/insert table-name params)]
+    (row (pq-sql sql params) ;(pq-params sql params))))
