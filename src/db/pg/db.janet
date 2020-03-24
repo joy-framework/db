@@ -286,3 +286,22 @@
   [table-name params]
   (let [sql (sql/insert table-name params)]
     (row (pq-sql sql params) ;(pq-params sql params))))
+
+
+(defn insert-all
+  `Takes a table name and an array of dictionaries,
+   inserts the array into the database and returns the inserted rows.
+
+   All keys must be the same.
+
+   Example:
+
+   (import db)
+
+   (db/insert-all :todo [{:name "name4"} {:name "name5"}])
+
+   => @[@{:id 4 :name "name4" :completed false} @{:id 5 :name "name5" :completed false}]`
+  [table-name arr]
+  (let [sql (sql/insert-all table-name arr)
+        params (mapcat values arr)]
+    (all sql ;params)))

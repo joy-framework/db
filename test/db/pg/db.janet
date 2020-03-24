@@ -53,7 +53,14 @@
 
   (test "find"
     (deep= @{:id 2 :name "name" :code "code"}
-           (db/find :account 2))))
+           (db/find :account 2)))
 
+  (test "insert-all"
+    (deep= @[@{:id 3 :name "name3"} @{:id 4 :name "name4"}]
+           (db/insert-all :account [{:name "name3"} {:name "name4"}])))
+
+  (test "insert-all with multiple params"
+    (deep= @[@{:id 5 :name "name5" :code "code2"} @{:id 6 :name "name6" :code "code1"}]
+           (db/insert-all :account [{:name "name5" :code "code2"} {:name "name6" :code "code1"}]))))
 
 (db/disconnect)

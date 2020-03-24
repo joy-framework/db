@@ -123,3 +123,20 @@
            (fetch-options args)] ?
           (filter string? ?)
           (string/join ? " "))))
+
+
+(defn insert-all
+  "Returns a batch insert statement from an array of dictionaries"
+  [table-name arr]
+  (var i 0)
+  (let [columns (as-> (first arr) ?
+                      (keys ?)
+                      (map snake-case ?)
+                      (string/join ? ", "))
+        vals (as-> (map keys arr) ?
+                   (mapcat (fn [ks] (string "(" (string/join
+                                                 (map (fn [_] (string "$" (++ i))) ks)
+                                                 ",")
+                                            ")")) ?)
+                  (string/join ? ", "))]
+    (string "insert into " (snake-case table-name) " (" columns ") values " vals " returning *")))
