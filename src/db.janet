@@ -12,4 +12,6 @@
     "database:sqlite" (file/touch (first args))
     "database:postgres" (os/shell (string "createdb " (first args)))
     "migration" (create-migration (first args))
-    "table" (create-table-migration args)))
+    "table" (create-table-migration args)
+    "migrate" (migrate)
+    "rollback" (rollback)))
