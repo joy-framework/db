@@ -7,8 +7,8 @@
 (import "src/db/pg/db" :as db)
 (db/connect)
 
-(db/execute "drop table account")
-(db/execute "create table account (id serial primary key, name text, code text, code_expires_at integer)")
+(db/execute "drop table if exists account")
+(db/execute "create table if not exists account (id serial primary key, name text, code text, code_expires_at integer)")
 
 (deftest
   (test "insert"
