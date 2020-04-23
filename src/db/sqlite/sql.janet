@@ -6,6 +6,8 @@
   [[k v] &opt positional?]
   (cond
     (= v 'null) "is null"
+    (indexed? v) (string/format "in (%s)"
+                                (string/join (map (fn [_] "?") v) ","))
     :else (if positional?
             (string "= ?")
             (string "= :" (snake-case k)))))
@@ -38,7 +40,7 @@
   "Takes a table name and where clause params and optional order/limit/offset options and returns a select sql string"
   [table-name &opt args]
   (let [where-params (get args :where)
-        where (when (not (nil? where-params)) (string "where " (where-clause where-params)))]
+        where (when (not (nil? where-params)) (string "where " (where-clause where-params true)))]
     (as-> [(string "select * from " (snake-case table-name))
            where
            (fetch-options args)] ?
@@ -80,7 +82,10 @@
 (defn fetch-params
   "Returns a table for a where clause of a 'fetch' sql string"
   [path]
-  (filter |(not (keyword? $)) path))
+  (->> (filter |(not (keyword? $)) path)
+       (map |(if (dictionary? $)
+               (get $ :id)
+               $))))
 
 
 (defn fetch

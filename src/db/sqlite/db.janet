@@ -104,7 +104,7 @@
   [table-name rowid]
   (let [params {:rowid rowid}
         sql (sql/from table-name {:where params :limit 1})]
-    (as-> (query sql params) ?
+    (as-> (query sql [rowid]) ?
           (get ? 0 {}))))
 
 
@@ -181,12 +181,10 @@
   [table-name & args]
   (let [opts (table ;args)
         sql (sql/from table-name opts)
-        params (get opts :where {})
-        params (as-> params ?
-                     (pairs ?)
-                     (filter (fn [[k v]] (not= 'null v)) ?)
-                     (mapcat identity ?)
-                     (apply table ?))]
+        params (->> (get opts :where {})
+                    (values)
+                    (mapcat identity)
+                    (filter (partial not= 'null)))]
     (query sql params)))
 
 
@@ -208,7 +206,10 @@
   [table-name & args]
   (let [opts (table ;args)
         sql (sql/from table-name opts)
-        params (get opts :where {})
+        params (->> (get opts :where {})
+                    (values)
+                    (mapcat identity)
+                    (filter (partial not= 'null)))
         rows (query sql params)]
     (get rows 0)))
 
@@ -226,7 +227,7 @@
   => {:id 1 name "name" :completed true}`
   [table-name id]
   (let [sql (sql/from table-name {:where {:id id} :limit 1})
-        rows (query sql {:id id})]
+        rows (query sql [id])]
     (get rows 0)))
 
 
