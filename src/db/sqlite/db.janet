@@ -8,9 +8,9 @@
     (error "DATABASE_URL environment variable isn't set"))
 
   (setdyn :db/connection (sqlite3/open database-url))
+
   (let [db (dyn :db/connection)]
     (sqlite3/eval db "PRAGMA foreign_keys=1;")
-    (sqlite3/eval db "PRAGMA journal_mode=WAL;")
     db))
 
 
