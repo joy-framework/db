@@ -275,7 +275,7 @@
 
 
 (defn update
-  `Takes an optional db connection, a table name and a dictionary with an :id key OR an id value,
+  `Takes a table name and a dictionary with an :id key OR an id value,
   and a dictionary with the new columns/values to be updated, updates the row in the
   database and returns the updated row.
 
@@ -352,7 +352,7 @@
 
 
 (defn delete-all
-  `Takes a db connection, a table name, and optional args and deletes the corresponding rows.
+  `Takes a table name, and optional args and deletes the corresponding rows.
 
   Example:
 
