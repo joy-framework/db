@@ -3,11 +3,13 @@
 (import ../helper :prefix "")
 
 
-(defn connect []
-  (unless database-url
+(defn connect [&opt url]
+  (default url database-url)
+
+  (unless url
     (error "DATABASE_URL environment variable isn't set"))
 
-  (setdyn :db/connection (sqlite3/open database-url))
+  (setdyn :db/connection (sqlite3/open url))
 
   (let [db (dyn :db/connection)]
     (sqlite3/eval db "PRAGMA foreign_keys=1;")

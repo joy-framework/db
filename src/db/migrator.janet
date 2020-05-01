@@ -98,42 +98,48 @@
     (map |(get file-migration-map $) versions)))
 
 
-(defn migrate []
-  (db/with-connection
-    (db/with-transaction
-      (db/execute "create table if not exists schema_migrations (version text primary key)")
-      (let [migrations (pending-migrations (db-versions) (file-migration-map))]
-        (loop [migration :in migrations]
-          (let [version (-> (string/split "-" migration)
-                            (first))
-                filename (path/join migrations-dir migration)
-                up (as-> filename ?
-                         (file/read-all ?)
-                         (parse-migration ?)
-                         (get ? :up))]
-            (print "Migrating [" migration "]...")
-            (print up)
-            (db/execute up)
-            (db/execute "insert into schema_migrations (version) values (:version)" {:version version})
-            (db/write-schema-file)
-            (print "Successfully migrated [" migration "]")))))))
+(defn migrate [&opt db-url]
+  (db/connect db-url)
+
+  (db/with-transaction
+    (db/execute "create table if not exists schema_migrations (version text primary key)")
+    (let [migrations (pending-migrations (db-versions) (file-migration-map))]
+      (loop [migration :in migrations]
+        (let [version (-> (string/split "-" migration)
+                          (first))
+              filename (path/join migrations-dir migration)
+              up (as-> filename ?
+                       (file/read-all ?)
+                       (parse-migration ?)
+                       (get ? :up))]
+          (print "Migrating [" migration "]...")
+          (print up)
+          (db/execute up)
+          (db/execute "insert into schema_migrations (version) values (:version)" {:version version})
+          (db/write-schema-file)
+          (print "Successfully migrated [" migration "]")))))
+
+  (db/disconnect))
 
 
-(defn rollback []
-  (db/with-connection
-    (db/with-transaction
-      (db/execute "create table if not exists schema_migrations (version text primary key)")
-      (when-let [versions (db-versions)
-                 version (get (reverse versions) 0)
-                 migration (get (file-migration-map) version)
-                 filename (string migrations-dir "/" migration)
-                 down (as-> filename ?
-                            (file/read-all ?)
-                            (parse-migration ?)
-                            (get ? :down))]
-        (print "Rolling back [" migration "]...")
-        (print down)
-        (db/execute down)
-        (db/execute "delete from schema_migrations where version = :version" {:version version})
-        (db/write-schema-file)
-        (print "Successfully rolled back [" migration "]")))))
+(defn rollback [&opt db-url]
+  (db/connect db-url)
+
+  (db/with-transaction
+    (db/execute "create table if not exists schema_migrations (version text primary key)")
+    (when-let [versions (db-versions)
+               version (get (reverse versions) 0)
+               migration (get (file-migration-map) version)
+               filename (string migrations-dir "/" migration)
+               down (as-> filename ?
+                          (file/read-all ?)
+                          (parse-migration ?)
+                          (get ? :down))]
+      (print "Rolling back [" migration "]...")
+      (print down)
+      (db/execute down)
+      (db/execute "delete from schema_migrations where version = :version" {:version version})
+      (db/write-schema-file)
+      (print "Successfully rolled back [" migration "]")))
+
+  (db/disconnect))
