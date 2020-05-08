@@ -3,8 +3,9 @@
 (import ../helper :prefix "")
 
 
-(defn connect []
-  (setdyn :db/connection (pq/connect database-url)))
+(defn connect [&opt url]
+  (default url database-url)
+  (setdyn :db/connection (pq/connect url)))
 
 
 (defn disconnect []
