@@ -3,7 +3,12 @@
 (import ../helper :prefix "")
 
 
-(defn connect []
+(defn connect [&opt url]
+  (default url database-url)
+
+  (unless url
+    (error "DATABASE_URL environment variable isn't set"))
+
   (setdyn :db/connection (pq/connect database-url)))
 
 
