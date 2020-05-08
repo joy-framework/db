@@ -5,7 +5,11 @@
 
 (defn connect [&opt url]
   (default url database-url)
-  (setdyn :db/connection (pq/connect url)))
+
+  (unless url
+    (error "DATABASE_URL environment variable isn't set"))
+
+  (setdyn :db/connection (pq/connect database-url)))
 
 
 (defn disconnect []
