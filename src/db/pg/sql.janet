@@ -78,7 +78,8 @@
                         (filter |(= 2 (length $)) ?)
                         (map |(string (-> $ first snake-case) ".id = $" (++ i)) ?)
                         (string/join ? " and "))))]
-    (as-> ["select * from"
+    (as-> [(string/format "select %s.*" (last keywords))
+           "from"
            (last keywords)
            (fetch-joins keywords)
            where

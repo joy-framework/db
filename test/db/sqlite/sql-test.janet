@@ -151,27 +151,27 @@
        (sql/fetch-joins [:account :todo :comment])))
 
   (test "fetch test with one table no ids"
-    (= "select * from account"
+    (= "select account.* from account"
        (sql/fetch [:account])))
 
   (test "fetch test with one table and one id"
-    (= "select * from account where account.id = ?"
+    (= "select account.* from account where account.id = ?"
        (sql/fetch [:account 1])))
 
   (test "fetch test with two tables and one id"
-    (= "select * from todo join account on account.id = todo.account_id where account.id = ?"
+    (= "select todo.* from todo join account on account.id = todo.account_id where account.id = ?"
        (sql/fetch [:account 1 :todo])))
 
   (test "fetch test with two tables and two ids"
-    (= "select * from todo join account on account.id = todo.account_id where account.id = ? and todo.id = ?"
+    (= "select todo.* from todo join account on account.id = todo.account_id where account.id = ? and todo.id = ?"
        (sql/fetch [:account 1 :todo 2])))
 
   (test "fetch test with two tables and two ids"
-    (= "select * from todo join account on account.id = todo.account_id where account.id = ? and todo.id = ?"
+    (= "select todo.* from todo join account on account.id = todo.account_id where account.id = ? and todo.id = ?"
        (sql/fetch [:account 1 :todo 2])))
 
   (test "fetch test with three tables and two ids"
-    (= "select * from comment join todo on todo.id = comment.todo_id join account on account.id = todo.account_id where account.id = ? and todo.id = ?"
+    (= "select comment.* from comment join todo on todo.id = comment.todo_id join account on account.id = todo.account_id where account.id = ? and todo.id = ?"
        (sql/fetch [:account 1 :todo 2 :comment])))
 
   (test "fetch-params test with three tables and two ids"
@@ -187,9 +187,9 @@
        (freeze (sql/fetch-params [:account]))))
 
   (test "fetch test with one table and options"
-    (= "select * from account limit 10"
+    (= "select account.* from account limit 10"
        (sql/fetch [:account] {:limit 10})))
 
   (test "fetch test with one table and limit and offset options"
-    (= "select * from account limit 10 offset 2"
+    (= "select account.* from account limit 10 offset 2"
        (sql/fetch [:account] {:limit 10 :offset 2}))))
