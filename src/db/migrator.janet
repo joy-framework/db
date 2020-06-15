@@ -116,7 +116,8 @@
           (print up)
           (db/execute up)
           (db/execute "insert into schema_migrations (version) values (:version)" {:version version})
-          (db/write-schema-file)
+          (when (not= "production" (os/getenv "JOY_ENV"))
+            (db/write-schema-file))
           (print "Successfully migrated [" migration "]")))))
 
   (db/disconnect))
@@ -139,7 +140,8 @@
       (print down)
       (db/execute down)
       (db/execute "delete from schema_migrations where version = :version" {:version version})
-      (db/write-schema-file)
+      (when (not= "production" (os/getenv "JOY_ENV"))
+        (db/write-schema-file))
       (print "Successfully rolled back [" migration "]")))
 
   (db/disconnect))
