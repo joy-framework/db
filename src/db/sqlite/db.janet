@@ -382,3 +382,56 @@
                          (map |(get $ :sql) ?)
                          (string/join ? "\n"))]
     (file/write-all "db/schema.sql" schema-sql)))
+
+
+(defn row
+  `Executes a query against a postgres database and
+   returns the first row.
+
+  Example:
+
+  (import db)
+
+  (db/row "select * from todos where id = ?" 1)
+
+  => @{:id 1 :name "name"}`
+  [sql & params]
+  (let [sql (string sql ";")]
+    (first (query sql params))))
+
+
+(defn val
+  `Executes a query against a postgres database and
+   returns the literal value from the select or
+   returning statement.
+
+  Example:
+
+  (import db)
+
+  (db/val "select name from todos where id = ?" 1)
+
+  => "todo #1"`
+  [sql & params]
+  (let [sql (string sql ";")]
+    (-> (query sql params)
+        (get 0 {})
+        (values)
+        (first))))
+
+
+(defn all
+  `Executes a query against a postgres database and
+   returns the literal value from the select or
+   returning statement.
+
+  Example:
+
+  (import db)
+
+  (db/all "select name from todos")
+
+  => @[@{:id 1 :tag-name "tag1"} @{:id 2 :tag-name "tag2"}]`
+  [sql & params]
+  (let [sql (string sql ";")]
+    (query sql params)))
