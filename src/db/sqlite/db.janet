@@ -267,7 +267,7 @@
   (let [sql (sql/insert-all table-name arr)
         params (sql/insert-all-params arr)]
     (execute sql params)
-    (query (string "select * from " (snake-case table-name) " order by rowid limit " (length params)))))
+    (reverse (query (string "select * from " (snake-case table-name) " order by rowid desc limit " (length arr))))))
 
 
 (defn get-id [val]
