@@ -67,6 +67,14 @@
       (deep= @[@{:id 5 :name "name5" :code "code2"} @{:id 6 :name "name6" :code "code1"}]
              (db/insert-all :account [{:name "name5" :code "code2"} {:name "name6" :code "code1"}])))
 
+    (test "update"
+      (deep= @{:id 5 :code "code2" :name "name7"}
+             (db/update :account 5 {:name "name7"})))
+
+    (test "update-all"
+      (deep= @[@{:name "name" :code "updated code" :id 2}]
+             (db/update-all :account {:code "code"} {:code "updated code"})))
+
     (test "delete one"
       (deep= @{:id 6 :name "name6" :code "code1"}
              (db/delete :account 6)))

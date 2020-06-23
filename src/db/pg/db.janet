@@ -56,8 +56,10 @@
 
 (def- param-peg '(<- (sequence ":" (some (choice (range "az" "AZ" "09") (set "-_"))))))
 
+
 (defn- capture [str]
   (peg/compile ~(any (+ (* ,str) 1))))
+
 
 (defn- replacer [patt subst]
   (peg/compile ~(% (any (+ (/ (<- ,patt) ,subst) (<- 1))))))
@@ -87,11 +89,18 @@
 
   (db/query "select * from todos where id = :id" {:id 1})
 
+  # or
+
+  (db/query "select * from todos where id = $1" [1])
+
   => [{:id 1 :name "name"} {...} ...]`
   [sql &opt params]
   (default params {})
-  (let [sql (string sql ";")]
-    (pq/all (dyn :db/connection) (pq-sql sql params) ;(pq-params sql params))))
+  (let [sql (string sql ";")
+        [sql params] (if (dictionary? params)
+                       [(pq-sql sql params) (pq-params sql params)]
+                       [sql params])]
+    (pq/all (dyn :db/connection) sql ;params)))
 
 
 (defn execute
@@ -110,11 +119,16 @@
 
   (db/execute "insert into todo (id, name) values (:id, :name)" {:id 1 :name "name"})
 
-  => Returns the last inserted row id, in this case 1`
+  # or
+
+  (db/execute "insert into todo (id, name) values ($1, $2)" [1 "name"])`
   [sql &opt params]
   (default params {})
-  (let [sql (string sql ";")]
-    (pq/exec (dyn :db/connection) (pq-sql sql params) ;(pq-params sql params))))
+  (let [sql (string sql ";")
+        [sql params] (if (dictionary? params)
+                       [(pq-sql sql params) (pq-params sql params)]
+                       [sql params])]
+    (pq/exec (dyn :db/connection) sql ;params)))
 
 
 (defn write-schema-file []
@@ -173,10 +187,10 @@
 
 (def schema-sql
   `select
-    m.name as tbl,
-    pti.name as col
-  from sqlite_master m
-  join pragma_table_info(m.name) pti on m.name != pti.name`)
+    t.table_name as tbl,
+    c.column_name as col
+  from information_schema.tables t
+  join information_schema.columns c on c.table_name = t.table_name`)
 
 (defn schema []
   (as-> schema-sql ?
@@ -357,8 +371,7 @@
                  params)
         sql (sql/update table-name params)
         id (get-id dict-or-id)]
-    (execute sql (merge params {:id id}))
-    (fetch [table-name id])))
+    (first (query sql (merge params {:id id})))))
 
 
 (defn update-all
@@ -382,10 +395,7 @@
                      (merge set-params {:updated-at (os/time)})
                      set-params)
         params (sql/update-all-params where-params set-params)]
-    (execute sql params)
-    (from table-name :where (as-> rows ?
-                                  (map |(table :id (get $ :id)) ?)
-                                  (apply merge ?)))))
+    (query sql params)))
 
 
 (defn delete
@@ -404,10 +414,8 @@
   => @{:id 1 :name "name" :completed true}`
   [table-name dict-or-id]
   (let [id (get-id dict-or-id)
-        row (fetch [table-name id])
-        sql (sql/delete table-name id)]
-    (execute sql {:id id})
-    row))
+        sql (sql/delete table-name)]
+    (row sql id)))
 
 
 (defn delete-all

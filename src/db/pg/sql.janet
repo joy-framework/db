@@ -103,11 +103,12 @@
 
 (defn where-clause
   "Takes either a string or a dictionary and returns a where clause with and or that same string"
-  [params]
+  [params &opt initial-counter]
+  (default initial-counter 0)
   (if (string? params)
     params
     (do
-      (var i 0)
+      (var i initial-counter)
       (as-> (pairs params) ?
             (map |(string (-> $ first snake-case) " " (where-op $ i)) ?)
             (string/join ? " and ")))))
@@ -157,18 +158,20 @@
   (let [columns (as-> (pairs params) ?
                       (map update-param ?)
                       (string/join ? ", "))]
-    (string "update " (snake-case table-name) " set " columns " where id = $1")))
+    (string "update " (snake-case table-name) " set " columns " where id = :id returning *")))
 
 
 (defn update-all
   "Returns an update sql string from two dictionaries representing the where clause and the set clause"
   [table-name where-params set-params]
+  (var i 0)
   (let [columns (as-> (pairs set-params) ?
                       (map |(string (first $) " = " (if (= 'null (last $))
                                                       "null"
-                                                      (string "$1"))) ?)
+                                                      (string "$" (++ i)))) ?)
                       (string/join ? ", "))]
-    (string "update " (snake-case table-name) " set " columns " where " (where-clause where-params))))
+    (string "update " (snake-case table-name) " set " columns " where " (where-clause where-params i)
+            " returning *")))
 
 
 (defn update-all-params
@@ -184,7 +187,7 @@
   [table-name params]
   (let [where-params (get params :where)
         where (when (truthy? where-params) (string "where " (where-clause where-params)))]
-    (as-> [(string "delete from " (snake-case table-name))
+    (as-> [(string "delete from " (snake-case table-name) " returning *")
            where
            (fetch-options params)] ?
           (filter truthy? ?)
@@ -194,5 +197,5 @@
 
 (defn delete
   "Returns a delete sql string from a table name and value for the id column"
-  [table-name id]
-  (string "delete from " (snake-case table-name) " where id = :id"))
+  [table-name]
+  (string "delete from " (snake-case table-name) " where id = $1 returning *"))
