@@ -141,3 +141,58 @@
                                             ")")) ?)
                   (string/join ? ", "))]
     (string "insert into " (snake-case table-name) " (" columns ") values " vals " returning *")))
+
+
+(defn update-param [[key val]]
+  (let [column (snake-case key)
+        value (if (= 'null val)
+                "null"
+                (string/format ":%s" column))]
+    (string/format "%s = %s" column value)))
+
+
+(defn update
+  "Returns an update sql string from a dictionary of params representing the set portion of the update statement"
+  [table-name params]
+  (let [columns (as-> (pairs params) ?
+                      (map update-param ?)
+                      (string/join ? ", "))]
+    (string "update " (snake-case table-name) " set " columns " where id = $1")))
+
+
+(defn update-all
+  "Returns an update sql string from two dictionaries representing the where clause and the set clause"
+  [table-name where-params set-params]
+  (let [columns (as-> (pairs set-params) ?
+                      (map |(string (first $) " = " (if (= 'null (last $))
+                                                      "null"
+                                                      (string "$1"))) ?)
+                      (string/join ? ", "))]
+    (string "update " (snake-case table-name) " set " columns " where " (where-clause where-params))))
+
+
+(defn update-all-params
+  "Returns an array of params for the update-all sql string"
+  [where-params set-params]
+  (array/concat
+    (values set-params)
+    (values where-params)))
+
+
+(defn delete-all
+  "Returns a delete sql string from a table name and value for the id column"
+  [table-name params]
+  (let [where-params (get params :where)
+        where (when (truthy? where-params) (string "where " (where-clause where-params)))]
+    (as-> [(string "delete from " (snake-case table-name))
+           where
+           (fetch-options params)] ?
+          (filter truthy? ?)
+          (string/join ? " ")
+          (string/trimr ?))))
+
+
+(defn delete
+  "Returns a delete sql string from a table name and value for the id column"
+  [table-name id]
+  (string "delete from " (snake-case table-name) " where id = :id"))

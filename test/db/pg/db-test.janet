@@ -1,10 +1,14 @@
 (import tester :prefix "" :exit true)
-(import "src/db/pg/db" :as db)
 
-# if you're running this test be sure to run
-# db new datbase:postgres db
-# from your terminal
+(if (string/has-prefix? "postgres" (or (os/getenv "DATABASE_URL") ""))
+  (import "src/db/pg/db" :as db)
+  (import "src/db/sqlite/db" :as db))
+
+
 (when (string/has-prefix? "postgres" (or (os/getenv "DATABASE_URL") ""))
+  (os/shell "dropdb test_db")
+  (os/shell "db new database:postgres test_db")
+
   (db/connect)
 
   (db/execute "drop table if exists account")
@@ -61,6 +65,16 @@
 
     (test "insert-all with multiple params"
       (deep= @[@{:id 5 :name "name5" :code "code2"} @{:id 6 :name "name6" :code "code1"}]
-             (db/insert-all :account [{:name "name5" :code "code2"} {:name "name6" :code "code1"}]))))
+             (db/insert-all :account [{:name "name5" :code "code2"} {:name "name6" :code "code1"}])))
+
+    (test "delete one"
+      (deep= @{:id 6 :name "name6" :code "code1"}
+             (db/delete :account 6)))
+
+    (test "delete all"
+      (empty? (do
+                (db/delete-all :account)
+                (db/fetch-all [:account])))))
+
 
   (db/disconnect))
