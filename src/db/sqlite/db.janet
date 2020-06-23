@@ -244,7 +244,7 @@
 
   (db/insert :todo {:name "name3"})
 
-  => {:id 3 :name "name3" :completed false}`
+  => @{:id 3 :name "name3" :completed false}`
   [table-name params]
   (let [sql (sql/insert table-name params)]
     (as-> (execute sql params) ?
@@ -262,7 +262,7 @@
 
   (db/insert-all :todo [{:name "name4"} {:name "name5"}])
 
-  => [{:id 4 :name "name4" :completed false} {:id 5 :name "name5" :completed false}]`
+  => @[@{:id 4 :name "name4" :completed false} @{:id 5 :name "name5" :completed false}]`
   [table-name arr]
   (let [sql (sql/insert-all table-name arr)
         params (sql/insert-all-params arr)]
@@ -289,7 +289,7 @@
 
   (db/update :todo {:id 4} {:name "new name 4"})
 
-  => {:id 4 :name "new name 4" :completed false}`
+  => @{:id 4 :name "new name 4" :completed false}`
   [table-name dict-or-id params]
   (let [sql-table-name (snake-case table-name)
         schema (schema)
@@ -314,7 +314,7 @@
 
   (db/update-all :todo {:completed false} {:completed true})
 
-  => [{:id 1 :completed true} ...]`
+  => @[@{:id 1 :completed true} ...]`
   [table-name where-params set-params]
   (let [rows (from table-name :where where-params)
         sql (sql/update-all table-name where-params set-params)
@@ -343,7 +343,7 @@
 
   (db/delete :todo 1)
 
-  => {:id 1 :name "name" :completed true}`
+  => @{:id 1 :name "name" :completed true}`
   [table-name dict-or-id]
   (let [id (get-id dict-or-id)
         row (fetch [table-name id])
@@ -366,7 +366,7 @@
 
   (db/delete-all :post :where {:draft true}) -> no limit
 
-  => [{:id 1 :title "title" :body "body" :draft true} ...]`
+  => @[@{:id 1 :title "title" :body "body" :draft true} ...]`
   [table-name & args]
   (let [params (table ;args)
         where-params (get params :where {})
