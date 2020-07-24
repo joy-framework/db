@@ -2,7 +2,7 @@
 (import ./db/migrator :prefix "" :export true)
 (import ./db/core :prefix "" :export true)
 
-(def version "0.1.0")
+(def version "0.2.0")
 
 (defn new
   "Creates migrations and databases"
