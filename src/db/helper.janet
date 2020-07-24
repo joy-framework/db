@@ -103,3 +103,20 @@
           (map-keys snake-case ?)
           (map-keys keyword ?))
     dict))
+
+
+(defn group-by [f ind]
+  `Groups an indexed datastructure according to function f
+
+  Example:
+
+  (group-by |($ :tbl) [{:tbl "post" :col "id"} {:tbl "post" :col "created_at"}])
+
+  =>
+
+  @{"post" @[@{:tbl "post" :col "id"} @{:tbl "post" :col "created_at"}]}`
+  (reduce
+    (fn [ret x]
+      (let [k (f x)]
+        (put ret k (array/push (get ret k @[]) x))))
+    @{} ind))
