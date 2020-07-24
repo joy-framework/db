@@ -15,6 +15,12 @@
     (deep= @{:id 2 :title "the title" :body "this is the body"}
            (db/insert :post {:title "the title" :body "this is the body"})))
 
+  (test "insert with single argument"
+    (do
+      (db/delete :post 2)
+      (deep= @{:id 2 :title "the title" :body "this is the body"}
+             (db/insert {:db/table :post :title "the title" :body "this is the body"}))))
+
   (test "query"
     (deep= @{:id 2 :title "the title" :body "this is the body"}
            (first (db/query "select * from post where body = :body" {:body "this is the body"}))))

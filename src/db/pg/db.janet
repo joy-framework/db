@@ -316,7 +316,19 @@
   (db/insert :todo {:name "name3"})
 
   => @{:id 3 :name "name3" :completed false}`
-  [table-name params]
+  [& args]
+
+  (var table-name nil)
+  (var params nil)
+
+  (if (= 2 (length args))
+    (do
+      (set table-name (args 0))
+      (set params (args 1)))
+    (do
+      (set table-name (snake-case (get (args 0) :db/table)))
+      (set params (put (table ;(kvs (args 0))) :db/table nil))))
+
   (let [sql (sql/insert table-name params)]
     (row (pq-sql sql params) ;(pq-params sql params))))
 
@@ -357,17 +369,38 @@
 
   (db/update :todo 4 {:name "new name 4"})
 
+  # or
+
   (db/update :todo {:id 4} {:name "new name 4"})
 
+  # or
+
+  (db/update {:db/table :todo :id 4 :name "new name 4"})
+
   => @{:id 4 :name "new name 4" :completed false}`
-  [table-name dict-or-id params]
+  [& args]
+
+  (var table-name nil)
+  (var dict-or-id nil)
+  (var params nil)
+
+  (if (= 3 (length args))
+    (do
+      (set table-name (args 0))
+      (set dict-or-id (args 1))
+      (set params (args 2)))
+    (do
+      (set table-name (get (args 0) :db/table))
+      (set dict-or-id (args 0))
+      (set params (put (table ;(kvs (args 0))) :db/table nil))))
+
   (let [sql-table-name (snake-case table-name)
         schema (schema)
         params (if (and (dictionary? schema)
                         (find-index |(= $ :updated_at) (get schema (keyword (snake-case table-name)))))
                  (merge params {:updated-at (os/time)})
                  params)
-        sql (sql/update table-name params)
+        sql (sql/update sql-table-name params)
         id (get-id dict-or-id)]
     (first (query sql (merge params {:id id})))))
 
@@ -410,7 +443,19 @@
   (db/delete :todo 1)
 
   => @{:id 1 :name "name" :completed true}`
-  [table-name dict-or-id]
+  [& args]
+
+  (var table-name nil)
+  (var dict-or-id nil)
+
+  (if (= 2 (length args))
+    (do
+      (set table-name (args 0))
+      (set dict-or-id (args 1)))
+    (do
+      (set table-name (get (args 0) :db/table))
+      (set dict-or-id (args 0))))
+
   (let [id (get-id dict-or-id)
         sql (sql/delete table-name)]
     (row sql id)))

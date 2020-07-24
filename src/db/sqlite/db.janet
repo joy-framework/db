@@ -243,8 +243,23 @@
 
   (db/insert :todo {:name "name3"})
 
+  # or
+
+  (db/insert {:db/table :todo :name "name3"})
+
   => @{:id 3 :name "name3" :completed false}`
-  [table-name params]
+  [& args]
+  (var table-name nil)
+  (var params nil)
+
+  (if (= 2 (length args))
+    (do
+      (set table-name (args 0))
+      (set params (args 1)))
+    (do
+      (set table-name (snake-case (get (args 0) :db/table)))
+      (set params (put (table ;(kvs (args 0))) :db/table nil))))
+
   (let [sql (sql/insert table-name params)]
     (as-> (execute sql params) ?
           (last-inserted table-name ?))))
@@ -286,10 +301,31 @@
 
   (db/update :todo 4 {:name "new name 4"})
 
+  # or
+
   (db/update :todo {:id 4} {:name "new name 4"})
 
+  # or
+
+  (db/update {:db/table :todo :id 4 :name "new name 4"})
+
   => @{:id 4 :name "new name 4" :completed false}`
-  [table-name dict-or-id params]
+  [& args]
+
+  (var table-name nil)
+  (var dict-or-id nil)
+  (var params nil)
+
+  (if (= 3 (length args))
+    (do
+      (set table-name (args 0))
+      (set dict-or-id (args 1))
+      (set params (args 2)))
+    (do
+      (set table-name (get (args 0) :db/table))
+      (set dict-or-id (args 0))
+      (set params (put (table ;(kvs (args 0))) :db/table nil))))
+
   (let [sql-table-name (snake-case table-name)
         schema (schema)
         params (if (and (dictionary? schema)
@@ -340,10 +376,27 @@
 
   (db/delete :todo {:id 1})
 
+  # or
+
   (db/delete :todo 1)
 
+  # or
+
+  (db/delete {:db/table :todo :id 1})
+
   => @{:id 1 :name "name" :completed true}`
-  [table-name dict-or-id]
+  [& args]
+  (var table-name nil)
+  (var dict-or-id nil)
+
+  (if (= 2 (length args))
+    (do
+      (set table-name (args 0))
+      (set dict-or-id (args 1)))
+    (do
+      (set table-name (get (args 0) :db/table))
+      (set dict-or-id (args 0))))
+
   (let [id (get-id dict-or-id)
         row (fetch [table-name id])
         sql (sql/delete table-name id)
