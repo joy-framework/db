@@ -120,9 +120,8 @@
 (defn schema []
   (as-> schema-sql ?
         (query ?)
-        (filter |(= "updated_at" (get $ :col)) ?)
-        (map |(table (get $ :tbl) (get $ :col)) ?)
-        (apply merge ?)))
+        (group-by |($ :tbl) ?)
+        (map-vals |(map (fn [x] (x :col)) $) ?)))
 
 
 (defn fetch
@@ -294,7 +293,7 @@
   (let [sql-table-name (snake-case table-name)
         schema (schema)
         params (if (and (dictionary? schema)
-                        (= "updated_at" (get schema sql-table-name)))
+                        (find-index |(= $ "updated_at") (get schema sql-table-name)))
                  (merge params {:updated-at (os/time)})
                  params)
         sql (sql/update table-name params)
@@ -320,7 +319,7 @@
         sql (sql/update-all table-name where-params set-params)
         schema (schema)
         set-params (if (and (dictionary? schema)
-                            (= "updated_at" (get schema (snake-case table-name))))
+                            (find-index |(= $ "updated_at") (get schema (snake-case table-name))))
                      (merge set-params {:updated-at (os/time)})
                      set-params)
         params (sql/update-all-params where-params set-params)]
