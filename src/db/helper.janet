@@ -152,3 +152,46 @@
        (filter |(contains? (first $) ind))
        (mapcat identity)
        (apply table)))
+
+
+(defn plural [str]
+  (let [patterns [["is" "es"]
+                  ["alias" "aliases"]
+                  ["status" "statuses"]
+                  ["us" "i"]
+                  ["sis" "ses"]
+                  ["o" "oes"]
+                  ["y" "ies"]
+                  ["tch" "tches"]
+                  ["ize" "izes"]
+                  ["ex" "ices"]
+                  ["ix" "ices"]
+                  ["x" "xes"]
+                  ["mouse" "mice"]
+                  ["s" "s"]
+                  ["" "s"]]]
+    (var s str)
+    (loop [[suffix subst] :in patterns]
+      (when (string/has-suffix? suffix s)
+        (do
+          (set s (string/trimr s suffix))
+          (set s (string s subst))
+          (break))))
+    s))
+
+
+(defn singular [str]
+  (let [patterns [["ies" "y"]
+                  ["tches" "tch"]
+                  ["esses" "ess"]
+                  ["sses" "ss"]
+                  ["es" "e"]
+                  ["s" ""]]]
+    (var s str)
+    (loop [[suffix subst] :in patterns]
+      (when (string/has-suffix? suffix s)
+        (do
+          (set s (string/trimr s suffix))
+          (set s (string s subst))
+          (break))))
+    s))
