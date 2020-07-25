@@ -310,6 +310,10 @@
 
   (db/update {:db/table :todo :id 4 :name "new name 4"})
 
+  # or
+
+  (db/update {:db/table :todo :id 4} {:name "new name 4"})
+
   => @{:id 4 :name "new name 4" :completed false}`
   [& args]
 
@@ -322,10 +326,15 @@
       (set table-name (args 0))
       (set dict-or-id (args 1))
       (set params (args 2)))
-    (do
-      (set table-name (get (args 0) :db/table))
-      (set dict-or-id (args 0))
-      (set params (put (table ;(kvs (args 0))) :db/table nil))))
+    (if (= 2 (length args))
+      (do
+        (set table-name (get (args 0) :db/table))
+        (set dict-or-id (args 0))
+        (set params (args 1)))
+      (do
+        (set table-name (get (args 0) :db/table))
+        (set dict-or-id (args 0))
+        (set params (put (table ;(kvs (args 0))) :db/table nil)))))
 
   (let [sql-table-name (snake-case table-name)
         schema (schema)
