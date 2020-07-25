@@ -1,9 +1,18 @@
+## db 0.3.0 (06/25/2020)
+
+* 7f0442f - Update README <Sean Walker>
+* 5843b6a - Add join, join/one and join/many support to sqlite from and find-by fns <Sean Walker>
+* 7602a12 - Add singular/plural helpers <Sean Walker>
+* 5efa3ea - Add contains? and table/slice helpers <Sean Walker>
+* 4496158 - Add :db/table to rest of postgres functions <Sean Walker>
+* 19c421c - Add :db/table to rest of sqlite functions <Sean Walker>
+
 ## db 0.2.0 (06/24/2020)
 
-* 97b06a7 - (HEAD -> master) Add single argument versions of insert/update/delete <Sean Walker>
+* 97b06a7 - Add single argument versions of insert/update/delete <Sean Walker>
 * a05df90 - Make db schema return whole database schema. Check for updated-at col <Sean Walker>
 * de48571 - Add group-by function <Sean Walker>
-* d979aeb - (HEAD -> master, origin/master) Get update working. Change execute/query to handle [] or {} params <Sean Walker>
+* d979aeb - Get update working. Change execute/query to handle [] or {} params <Sean Walker>
 * 8ed5bc4 - Fix returned rows from sqlite insert-all <Sean Walker>
 * 88a90e8 - Add row/val/all functions to sqlite api <Sean Walker>
 * 7fbd37e - Update docs to show arrays/tables returned instead of tuples/structs <Sean Walker>
