@@ -56,13 +56,14 @@
   (db/query "select * from todos where id = :id" {:id 1})
 
   => [{:id 1 :name "name"} {...} ...]`
-  [sql &opt params]
+  [sql &opt params table-name]
   (default params {})
   (let [sql (string sql ";")
         params (snake-case-keys params)
         db (dyn :db/connection)]
     (as-> (sqlite3/eval db sql params) ?
-          (map kebab-case-keys ?))))
+          (map kebab-case-keys ?)
+          (map |(merge $ {:db/table (keyword table-name)}) ?))))
 
 
 (defn execute
@@ -139,7 +140,7 @@
   (let [args (table ;args)
         sql (sql/fetch path (merge args {:limit 1}))
         params (sql/fetch-params path)]
-    (as-> (query sql params) ?
+    (as-> (query sql params (last (filter keyword? path))) ?
           (get ? 0))))
 
 
@@ -160,7 +161,7 @@
   [path & args]
   (let [sql (sql/fetch path (table ;args))
         params (sql/fetch-params path)]
-    (query sql params)))
+    (query sql params (last (filter keyword? path)))))
 
 
 (defn from
@@ -186,7 +187,7 @@
                     (values)
                     (mapcat identity)
                     (filter (partial not= 'null)))]
-    (query sql params)))
+    (query sql params table-name)))
 
 
 (defn find-by
@@ -211,7 +212,7 @@
                     (values)
                     (mapcat identity)
                     (filter (partial not= 'null)))
-        rows (query sql params)]
+        rows (query sql params table-name)]
     (get rows 0)))
 
 
@@ -228,7 +229,7 @@
   => {:id 1 name "name" :completed true}`
   [table-name id]
   (let [sql (sql/from table-name {:where {:id id} :limit 1})
-        rows (query sql [id])]
+        rows (query sql [id] table-name)]
     (get rows 0)))
 
 
