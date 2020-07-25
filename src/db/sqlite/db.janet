@@ -63,7 +63,10 @@
         db (dyn :db/connection)]
     (as-> (sqlite3/eval db sql params) ?
           (map kebab-case-keys ?)
-          (map |(merge $ {:db/table (keyword table-name)}) ?))))
+          (map |(if table-name
+                  (merge $ {:db/table (keyword table-name)})
+                  $)
+               ?))))
 
 
 (defn execute
@@ -107,7 +110,7 @@
   [table-name rowid]
   (let [params {:rowid rowid}
         sql (sql/from table-name {:where params :limit 1})]
-    (as-> (query sql [rowid]) ?
+    (as-> (query sql [rowid] table-name) ?
           (get ? 0 {}))))
 
 
@@ -183,10 +186,19 @@
   [table-name & args]
   (let [opts (table ;args)
         sql (sql/from table-name opts)
-        params (->> (get opts :where {})
-                    (values)
-                    (mapcat identity)
-                    (filter (partial not= 'null)))]
+        params (cond
+                 (dictionary? (opts :where))
+                 (->> (get opts :where {})
+                      (values)
+                      (mapcat identity)
+                      (filter (partial not= 'null)))
+
+                 (tuple? (opts :where))
+                 (->> (get opts :where [])
+                      (drop 1)
+                      (filter (partial not= 'null)))
+
+                 :else [])]
     (query sql params table-name)))
 
 
@@ -282,7 +294,9 @@
   (let [sql (sql/insert-all table-name arr)
         params (sql/insert-all-params arr)]
     (execute sql params)
-    (reverse (query (string "select * from " (snake-case table-name) " order by rowid desc limit " (length arr))))))
+    (reverse (query (string "select * from " (snake-case table-name) " order by rowid desc limit " (length arr))
+                    {}
+                    table-name))))
 
 
 (defn get-id [val]

@@ -8,17 +8,17 @@
 
 (deftest
   (test "insert"
-    (deep= @{:id 1 :title "the title"}
+    (deep= @{:id 1 :title "the title" :db/table :post}
            (db/insert :post {:title "the title"})))
 
   (test "insert with multiple params"
-    (deep= @{:id 2 :title "the title" :body "this is the body"}
+    (deep= @{:id 2 :title "the title" :body "this is the body" :db/table :post}
            (db/insert :post {:title "the title" :body "this is the body"})))
 
   (test "insert with single argument"
     (do
       (db/delete :post 2)
-      (deep= @{:id 2 :title "the title" :body "this is the body"}
+      (deep= @{:id 2 :title "the title" :body "this is the body" :db/table :post}
              (db/insert {:db/table :post :title "the title" :body "this is the body"}))))
 
   (test "query"
@@ -38,35 +38,35 @@
            (db/all "select * from post where body = ?" "this is the body")))
 
   (test "fetch"
-    (deep= @{:id 1 :title "the title"}
+    (deep= @{:id 1 :title "the title" :db/table :post}
            (db/fetch [:post 1])))
 
   (test "fetch-all"
-    (deep= @[@{:id 1 :title "the title"} @{:id 2 :title "the title" :body "this is the body"}]
+    (deep= @[@{:id 1 :title "the title" :db/table :post} @{:id 2 :title "the title" :body "this is the body" :db/table :post}]
            (db/fetch-all [:post] :order "id")))
 
   (test "from"
-    (deep= @[@{:id 2 :title "the title" :body "this is the body"}]
+    (deep= @[@{:id 2 :title "the title" :body "this is the body" :db/table :post}]
            (db/from :post :where {:body "this is the body"} :order "id")))
 
   (test "find-by"
-    (deep= @{:id 2 :title "the title" :body "this is the body"}
+    (deep= @{:id 2 :title "the title" :body "this is the body" :db/table :post}
            (db/find-by :post :where {:body "this is the body"})))
 
   (test "find"
-    (deep= @{:id 2 :title "the title" :body "this is the body"}
+    (deep= @{:id 2 :title "the title" :body "this is the body" :db/table :post}
            (db/find :post 2)))
 
   (test "insert-all"
-    (deep= @[@{:id 3 :title "name3"} @{:id 4 :title "name4"}]
+    (deep= @[@{:id 3 :title "name3" :db/table :post} @{:id 4 :title "name4" :db/table :post}]
            (db/insert-all :post [{:title "name3"} {:title "name4"}])))
 
   (test "insert-all with multiple params"
-    (deep= @[@{:id 5 :title "name5" :body "code2"} @{:id 6 :title "name6" :body "code1"}]
+    (deep= @[@{:id 5 :title "name5" :body "code2" :db/table :post} @{:id 6 :title "name6" :body "code1" :db/table :post}]
            (db/insert-all :post [{:title "name5" :body "code2"} {:title "name6" :body "code1"}])))
 
   (test "delete one"
-    (deep= @{:id 6 :title "name6" :body "code1"}
+    (deep= @{:id 6 :title "name6" :body "code1" :db/table :post}
            (db/delete :post 6)))
 
   (test "delete all"

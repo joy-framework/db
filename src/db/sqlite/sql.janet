@@ -16,11 +16,16 @@
 (defn where-clause
   "Takes either a string or a dictionary and returns a where clause with and or that same string"
   [params &opt positional?]
-  (if (string? params)
-    params
+  (cond
+    (indexed? params)
+    (first params)
+
+    (dictionary? params)
     (as-> (pairs params) ?
           (map |(string (-> $ first snake-case) " " (where-op $ positional?)) ?)
-          (string/join ? " and "))))
+          (string/join ? " and "))
+
+    :else params))
 
 
 (defn fetch-options
