@@ -94,13 +94,16 @@
   (db/query "select * from todos where id = $1" [1])
 
   => [{:id 1 :name "name"} {...} ...]`
-  [sql &opt params]
+  [sql &opt params table-name]
   (default params {})
   (let [sql (string sql ";")
         [sql params] (if (dictionary? params)
                        [(pq-sql sql params) (pq-params sql params)]
                        [sql params])]
-    (pq/all (dyn :db/connection) sql ;params)))
+    (->> (pq/all (dyn :db/connection) sql ;params)
+         (map |(if table-name
+                 (merge $ {:db/table table-name})
+                 $)))))
 
 
 (defn execute
@@ -214,7 +217,7 @@
   (let [args (table ;args)
         sql (sql/fetch path (merge args {:limit 1}))
         params (sql/fetch-params path)]
-    (row sql ;params)))
+    (first (query sql params (->> path (filter keyword?) last)))))
 
 
 (defn fetch-all
@@ -234,7 +237,7 @@
   [path & args]
   (let [sql (sql/fetch path (table ;args))
         params (sql/fetch-params path)]
-    (all sql ;params)))
+    (query sql params (->> path (filter keyword?) last))))
 
 
 (defn from
@@ -260,7 +263,7 @@
         params (as-> params ?
                      (values ?)
                      (filter |(not (sql/null? $)) ?))]
-    (all sql ;params)))
+    (query sql params table-name)))
 
 
 (defn find-by
@@ -285,7 +288,7 @@
         params (as-> params ?
                      (values ?)
                      (filter |(not (sql/null? $)) ?))]
-    (row sql ;params)))
+    (first (query sql params table-name))))
 
 
 (defn find
@@ -301,7 +304,7 @@
   => {:id 1 name "name" :completed true}`
   [table-name id]
   (let [sql (sql/from table-name {:where {:id id} :limit 1})]
-    (row sql id)))
+    (first (query sql [id] table-name))))
 
 
 (defn insert
@@ -330,7 +333,9 @@
       (set params (put (table ;(kvs (args 0))) :db/table nil))))
 
   (let [sql (sql/insert table-name params)]
-    (row (pq-sql sql params) ;(pq-params sql params))))
+    (first (query (pq-sql sql params)
+                  (pq-params sql params)
+                  table-name))))
 
 
 (defn insert-all
@@ -349,7 +354,7 @@
   [table-name arr]
   (let [sql (sql/insert-all table-name arr)
         params (mapcat values arr)]
-    (all sql ;params)))
+    (query sql params table-name)))
 
 
 (defn get-id [val]
@@ -402,7 +407,9 @@
                  params)
         sql (sql/update sql-table-name params)
         id (get-id dict-or-id)]
-    (first (query sql (merge params {:id id})))))
+    (first (query sql
+                  (merge params {:id id})
+                  table-name))))
 
 
 (defn update-all
@@ -426,7 +433,7 @@
                      (merge set-params {:updated-at (os/time)})
                      set-params)
         params (sql/update-all-params where-params set-params)]
-    (query sql params)))
+    (query sql params table-name)))
 
 
 (defn delete
@@ -458,7 +465,7 @@
 
   (let [id (get-id dict-or-id)
         sql (sql/delete table-name)]
-    (row sql id)))
+    (first (query sql [id] table-name))))
 
 
 (defn delete-all

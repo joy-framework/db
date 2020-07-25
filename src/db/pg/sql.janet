@@ -198,4 +198,5 @@
 (defn delete
   "Returns a delete sql string from a table name and value for the id column"
   [table-name]
-  (string "delete from " (snake-case table-name) " where id = $1 returning *"))
+  (string/format "delete from %s where id = $1 returning *"
+                 (snake-case table-name)))
