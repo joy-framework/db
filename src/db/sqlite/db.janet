@@ -167,6 +167,29 @@
     (query sql params (last (filter keyword? path)))))
 
 
+(defn format-from-rows [table-columns join-columns join-table join-type rows]
+  (def table-columns (->> (map kebab-case table-columns)
+                          (map keyword)))
+
+  (def join-columns (->> (map |(string join-table "/" $) join-columns)
+                         (map kebab-case)
+                         (map keyword)))
+
+  (->> (group-by |(freeze (table/slice $ table-columns)) rows)
+       (map-vals |(table (if (= :one join-type)
+                           (keyword (singular join-table))
+                           (keyword (plural join-table)))
+                         (let [f-rows (map (fn [r] (map-keys (fn [x] (keyword (string/replace (string join-table "/") "" x)))
+                                                             (table/slice r join-columns)))
+                                           $)]
+                            (if (= :one join-type)
+                               (first f-rows)
+                               f-rows))))
+
+       (pairs)
+       (mapcat (fn [[k v]] (merge k v)))))
+
+
 (defn from
   `Takes a table name and optional args
    and returns all of the rows that match the query
@@ -182,10 +205,22 @@
 
   (db/from :todo :where {:completed true} :order "name desc" :limit 10)
 
+  # or
+
+  (db/from :todo :where ["completed = ?" 1] :order "name desc" :limit 10)
+
   => [{:id 1 name "name" :completed true} {:id 1 :name "name2" :completed true}]`
   [table-name & args]
   (let [opts (table ;args)
-        sql (sql/from table-name opts)
+        join-table (or (opts :join)
+                       (opts :join/one)
+                       (opts :join/many)
+                       "")
+        schema (schema)
+        columns (get schema (snake-case table-name))
+        join-columns (get schema (snake-case join-table) [])
+        opts (merge opts {:join (or (opts :join/one) (opts :join/many) (opts :join))})
+        sql (sql/from table-name opts columns join-columns)
         params (cond
                  (dictionary? (opts :where))
                  (->> (get opts :where {})
@@ -198,8 +233,12 @@
                       (drop 1)
                       (filter (partial not= 'null)))
 
-                 :else [])]
-    (query sql params table-name)))
+                 :else [])
+        rows (query sql params table-name)]
+    (if (or (opts :join/one)
+            (opts :join/many))
+      (format-from-rows columns join-columns join-table (if (opts :join/one) :one :many) rows)
+      rows)))
 
 
 (defn find-by
@@ -219,12 +258,24 @@
   => {:id 1 name "name" :completed true}`
   [table-name & args]
   (let [opts (table ;args)
-        sql (sql/from table-name opts)
+        join-table (or (opts :join)
+                       (opts :join/one)
+                       (opts :join/many)
+                       "")
+        schema (schema)
+        columns (get schema (snake-case table-name))
+        join-columns (get schema (snake-case join-table) [])
+        opts (merge opts {:join (or (opts :join/one) (opts :join/many) (opts :join))})
+        sql (sql/from table-name opts columns join-columns)
         params (->> (get opts :where {})
                     (values)
                     (mapcat identity)
                     (filter (partial not= 'null)))
-        rows (query sql params table-name)]
+        rows (query sql params table-name)
+        rows (if (or (opts :join/one)
+                     (opts :join/many))
+               (format-from-rows columns join-columns join-table (if (opts :join/one) :one :many) rows)
+               rows)]
     (get rows 0)))
 
 

@@ -102,6 +102,21 @@
     (= "select * from account where name = ? order by rowid desc limit 3"
        (sql/from :account {:where {:name "name"} :order "rowid desc" :limit 3})))
 
+  (test "from with join many (has-many) test"
+    (= "select account.*, posts.id as 'posts/id', posts.name as 'posts/name' from account join posts on posts.account_id = account.id where name = ? order by rowid desc limit 3"
+       (sql/from :account
+                 {:join :posts :where {:name "name"} :order "rowid desc" :limit 3}
+                 @["id" "name"]
+                 @["id" "name"])))
+
+  (test "from with join one (belongs-to) test"
+    (= "select post.*, account.id as 'account/id', account.name as 'account/name' from post join account on account.id = post.account_id where name = ? order by rowid desc limit 3"
+       (sql/from :post
+                 {:join :account :where {:name "name"} :order "rowid desc" :limit 3}
+                 @["account_id"]
+                 @["id" "name"])))
+
+
   (test "fetch-options test with limit"
     (= "limit 10"
        (sql/fetch-options {:limit 10})))

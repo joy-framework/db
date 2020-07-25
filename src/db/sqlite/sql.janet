@@ -41,12 +41,39 @@
             (string/join ? " ")))))
 
 
+(defn from-join [columns from-table join-table]
+  (when join-table
+    (def join-type (if (contains? (string join-table "_id") columns)
+                     :one
+                     :many))
+
+    (def join-table (snake-case join-table))
+    (def from-table (snake-case from-table))
+
+    (case join-type
+      :one
+      (string/format "join %s on %s.id = %s.%s_id"
+                     join-table join-table from-table join-table)
+
+      :many
+      (string/format "join %s on %s.%s_id = %s.id"
+                     join-table join-table from-table from-table))))
+
+
 (defn from
   "Takes a table name and where clause params and optional order/limit/offset options and returns a select sql string"
-  [table-name &opt args]
+  [table-name &opt args columns join-columns]
+  (default join-columns [])
   (let [where-params (get args :where)
-        where (when (not (nil? where-params)) (string "where " (where-clause where-params true)))]
-    (as-> [(string "select * from " (snake-case table-name))
+        where (when (not (nil? where-params)) (string "where " (where-clause where-params true)))
+        select (if (args :join)
+                 (string "select "
+                         (snake-case table-name) ".*, "
+                         (-> (map |(string (snake-case (args :join)) "." $ " as '" (snake-case (args :join)) "/" $ "'") join-columns)
+                             (string/join ", ")))
+                 "select *")]
+    (as-> [(string select " from " (snake-case table-name))
+           (from-join columns table-name (args :join))
            where
            (fetch-options args)] ?
           (filter string? ?)
