@@ -120,3 +120,35 @@
       (let [k (f x)]
         (put ret k (array/push (get ret k @[]) x))))
     @{} ind))
+
+
+(defn contains?
+  `Finds a truthy value in an indexed or a dictionary's
+   keys
+
+   Example
+
+   (contains? :a [:a :b :c]) => true
+   (contains? :a {:a 1 :b 2 :c 3}) => true
+   (contains? :d {:a 1 :b 2 :c 3}) => false`
+  [val arr]
+  (when (or (indexed? arr)
+            (dictionary? arr))
+    (truthy?
+     (or (find |(= val $) arr)
+         (get arr val)))))
+
+
+(defn table/slice
+  `Selects part of a dictionary based on ind of keys. Returns a table.
+
+   Example:
+
+   (table/slice @{:a 1 :b 2 :c 3} [:a :b]) => @{:a 1 :b 2}
+   (table/slice @{:a 1 :b 2 :c 3} []) => @{}
+   (table/slice @{:a 1 :b 2 :c 3} [:a]) => @{:a 1}`
+  [dict ind]
+  (->> (pairs dict)
+       (filter |(contains? (first $) ind))
+       (mapcat identity)
+       (apply table)))
