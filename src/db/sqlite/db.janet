@@ -167,7 +167,11 @@
     (query sql params (last (filter keyword? path)))))
 
 
-(defn format-from-rows [table-columns join-columns join-table join-type rows]
+(defn join/one? [opts]
+  (truthy? (opts :join/one)))
+
+
+(defn join-rows [table-columns join-columns join-table opts rows]
   (def table-columns (->> (map kebab-case table-columns)
                           (map keyword)))
 
@@ -175,19 +179,26 @@
                          (map kebab-case)
                          (map keyword)))
 
-  (->> (group-by |(freeze (table/slice $ table-columns)) rows)
-       (map-vals |(table (if (= :one join-type)
-                           (keyword (singular join-table))
-                           (keyword (plural join-table)))
-                         (let [f-rows (map (fn [r] (map-keys (fn [x] (keyword (string/replace (string join-table "/") "" x)))
-                                                             (table/slice r join-columns)))
-                                           $)]
-                            (if (= :one join-type)
-                               (first f-rows)
-                               f-rows))))
+  (def fk (if (join/one? opts)
+            (-> join-table (singular) (keyword))
+            (-> join-table (plural) (keyword))))
 
-       (pairs)
-       (mapcat (fn [[k v]] (merge k v)))))
+  (defn singularize [rows]
+    (if (join/one? opts)
+      (first rows)
+      rows))
+
+  (defn gk [dict] (freeze (table/slice dict table-columns)))
+  (def grouped (group-by |(gk $) rows))
+
+  (->> rows
+       (map |(put $
+                  fk
+                  (->> (get grouped (gk $))
+                       (map (fn [r] (map-keys (fn [x] (keyword (string/replace (string join-table "/") "" x)))
+                                              (table/slice r join-columns))))
+                       (singularize))))
+       (map |(table/slice $ (array/push table-columns fk)))))
 
 
 (defn from
@@ -235,9 +246,10 @@
 
                  :else [])
         rows (query sql params table-name)]
+
     (if (or (opts :join/one)
             (opts :join/many))
-      (format-from-rows columns join-columns join-table (if (opts :join/one) :one :many) rows)
+      (join-rows columns join-columns join-table opts rows)
       rows)))
 
 
@@ -271,12 +283,12 @@
                     (values)
                     (mapcat identity)
                     (filter (partial not= 'null)))
-        rows (query sql params table-name)
-        rows (if (or (opts :join/one)
-                     (opts :join/many))
-               (format-from-rows columns join-columns join-table (if (opts :join/one) :one :many) rows)
-               rows)]
-    (get rows 0)))
+        rows (query sql params table-name)]
+    (first
+      (if (or (opts :join/one)
+              (opts :join/many))
+        (join-rows columns join-columns join-table opts rows)
+        rows))))
 
 
 (defn find
