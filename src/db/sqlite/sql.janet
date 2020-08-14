@@ -14,7 +14,7 @@
 
 
 (defn where-clause
-  "Takes either a string or a dictionary and returns a where clause with and or that same string"
+  "Takes a string, indexed or dictionary and returns a where clause with and or that same string"
   [params &opt positional?]
   (cond
     (indexed? params)
@@ -31,7 +31,7 @@
 (defn fetch-options
   "Takes a dictionary and returns order by, limit and offset sql bits"
   [args]
-  (when (not (nil? args))
+  (when args
     (let [{:order order :limit limit :offset offset} args
           order-by (when order (string "order by " order))
           limit (when limit (string "limit " limit))
@@ -65,7 +65,7 @@
   [table-name &opt args columns join-columns]
   (default join-columns [])
   (let [where-params (get args :where)
-        where (when (not (nil? where-params)) (string "where " (where-clause where-params true)))
+        where (when where-params (string "where " (where-clause where-params true)))
         select (if (args :join)
                  (string "select "
                          (snake-case table-name) ".*, "
@@ -77,7 +77,8 @@
            where
            (fetch-options args)] ?
           (filter string? ?)
-          (string/join ? " "))))
+          (string/join ? " ")
+          (string/trim ?))))
 
 
 (defn clone-inside

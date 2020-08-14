@@ -201,6 +201,20 @@
        (map |(table/slice $ (array/push table-columns fk)))))
 
 
+(defn where-params [val]
+  (def params (cond
+                (dictionary? val)
+                (->> (values val)
+                     (mapcat identity))
+
+                (indexed? val)
+                (drop 1 val)
+
+                :else []))
+
+  (filter (partial not= 'null) params))
+
+
 (defn from
   `Takes a table name and optional args
    and returns all of the rows that match the query
@@ -232,19 +246,7 @@
         join-columns (get schema (snake-case join-table) [])
         opts (merge opts {:join (or (opts :join/one) (opts :join/many) (opts :join))})
         sql (sql/from table-name opts columns join-columns)
-        params (cond
-                 (dictionary? (opts :where))
-                 (->> (get opts :where {})
-                      (values)
-                      (mapcat identity)
-                      (filter (partial not= 'null)))
-
-                 (tuple? (opts :where))
-                 (->> (get opts :where [])
-                      (drop 1)
-                      (filter (partial not= 'null)))
-
-                 :else [])
+        params (where-params (get opts :where))
         rows (query sql params table-name)]
 
     (if (or (opts :join/one)
@@ -279,10 +281,7 @@
         join-columns (get schema (snake-case join-table) [])
         opts (merge opts {:join (or (opts :join/one) (opts :join/many) (opts :join))})
         sql (sql/from table-name opts columns join-columns)
-        params (->> (get opts :where {})
-                    (values)
-                    (mapcat identity)
-                    (filter (partial not= 'null)))
+        params (where-params (get opts :where))
         rows (query sql params table-name)]
     (first
       (if (or (opts :join/one)

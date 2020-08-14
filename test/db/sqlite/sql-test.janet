@@ -15,8 +15,16 @@
        (sql/insert :account {:name 'null})))
 
   (test "insert with multiple params with dashes"
-    (= "insert into account (password, created_at, name) values (:password, :created_at, :name)"
-       (sql/insert :account {:name "name" :password "password" :created-at "created-at"})))
+    (is (deep= (->> (string/split " " "insert into account (password, created_at, name) values (:password, :created_at, :name)")
+                    (map |(string/replace-all "(" "" $))
+                    (map |(string/replace-all ")" "" $))
+                    (map |(string/replace-all "," "" $))
+                    (sorted))
+               (->> (string/split " " (sql/insert :account {:name "name" :password "password" :created-at "created-at"}))
+                    (map |(string/replace-all "(" "" $))
+                    (map |(string/replace-all ")" "" $))
+                    (map |(string/replace-all "," "" $))
+                    (sorted)))))
 
   (test "insert-all test"
     (= "insert into account (name) values (?), (?)"
@@ -35,8 +43,8 @@
        (freeze (sql/insert-all-params [{:name "name1" :email "email"} {:name "name2" :email "email2"}]))))
 
   (test "insert-all-params test with three params"
-    (deep= @["email" 1 "name1" "email2" 2 "name2"]
-           (sql/insert-all-params [{:name "name1" :email "email" :test 1} {:name "name2" :email "email2" :test 2}])))
+    (is (deep= (sorted ["email" 1 "name1" "email2" 2 "name2"])
+               (sorted (sql/insert-all-params [{:name "name1" :email "email" :test 1} {:name "name2" :email "email2" :test 2}])))))
 
   (test "insert-all-params test"
     (= ["name1" "name2"]
@@ -87,16 +95,16 @@
        (sql/delete-all :account {:where "name = :name or name is null"})))
 
   (test "where-clause test"
-    (= "name = :name and id = :id"
-       (sql/where-clause {:id 1 :name "name"})))
+    (is (deep= (sorted (string/split " " "name = :name and id = :id"))
+               (sorted (string/split " " (sql/where-clause {:id 1 :name "name"}))))))
 
   (test "where-clause with a null value"
-    (= "name is null and id = :id"
-       (sql/where-clause {:id 1 :name 'null})))
+    (is (deep= (sorted (string/split " " "name is null and id = :id"))
+               (sorted (string/split " " (sql/where-clause {:id 1 :name 'null}))))))
 
   (test "from test"
-    (= "select * from account where name = ? "
-       (sql/from :account {:where {:name "name"}})))
+    (is (= "select * from account where name = ?"
+           (sql/from :account {:where {:name "name"}}))))
 
   (test "from with options test"
     (= "select * from account where name = ? order by rowid desc limit 3"
@@ -207,4 +215,12 @@
 
   (test "fetch test with one table and limit and offset options"
     (= "select account.* from account limit 10 offset 2"
-       (sql/fetch [:account] {:limit 10 :offset 2}))))
+       (sql/fetch [:account] {:limit 10 :offset 2})))
+
+  (test "where with a tuple"
+    (is (= "select * from account where id = ?"
+           (sql/from :account {:where ["id = ?" 1]}))))
+
+  (test "find-by with a tuple"
+    (is (= "select * from users where code = ?"
+           (sql/from :users {:where ["code = ?" 123]})))))

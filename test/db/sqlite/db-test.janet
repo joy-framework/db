@@ -46,8 +46,8 @@
            (db/fetch-all [:post] :order "id")))
 
   (test "from"
-    (deep= @[@{:id 2 :title "the title" :body "this is the body" :db/table :post}]
-           (db/from :post :where {:body "this is the body"} :order "id")))
+    (is (deep= @[@{:id 2 :title "the title" :body "this is the body" :db/table :post}]
+               (db/from :post :where {:body "this is the body"} :order "id"))))
 
   (test "find-by"
     (deep= @{:id 2 :title "the title" :body "this is the body" :db/table :post}
