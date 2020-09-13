@@ -1,55 +1,123 @@
 (import ../helper :prefix "")
 
 
-(defn where-op
-  "Takes kvs and returns either ? or :name params as strings in a where clause"
-  [[k v] &opt positional?]
+(defn- ?param [val]
+  "?")
+
+
+(defn- ?params [dict]
+  (as-> (keys dict) ?
+        (map ?param ?)
+        (string/join ? ", ")))
+
+
+(defn- pk? [val]
+  (when val
+    (= "id" (string val))))
+
+
+(defn- null? [val]
+  (= 'null val))
+
+
+(defn- nilify [val]
+  (if (null? val)
+    nil
+    val))
+
+
+(defn- where/op
+  "Takes tuples and returns a where clause 'part'"
+  [[k v]]
   (cond
     (= v 'null) "is null"
     (indexed? v) (string/format "in (%s)"
                                 (string/join (map (fn [_] "?") v) ","))
-    :else (if positional?
-            (string "= ?")
-            (string "= :" (snake-case k)))))
+    :else (string "= ?")))
 
 
-(defn where-clause
-  "Takes a string, indexed or dictionary and returns a where clause with and or that same string"
-  [params &opt positional?]
+(defn- where
+  "Takes a string, indexed or dictionary and returns a where clause"
+  [params]
+  (def params (get params :where))
+
+  (def s (cond
+            (indexed? params)
+            (first params)
+
+            (dictionary? params)
+            (as-> (pairs params) ?
+                  (map |(string (-> $ first snake-case) " " (where/op $)) ?)
+                  (string/join ? " and "))
+
+            :else params))
+
+  (when s
+    (string "where " s)))
+
+
+(defn- sql-params [val]
+  (def val (cond
+             (dictionary? val)
+             (->> (values val)
+                  (mapcat identity)
+                  (map nilify))
+
+             (indexed? val)
+             (->> (drop 1 val)
+                  (map nilify))
+
+             :else [])))
+
+
+(defn- where/params [p]
+  (->> (get p :where)
+       (sql-params)
+       (filter (comp not null?))))
+
+
+(defn- join/tables [args]
+  (def t (or (get args :join)
+             (get args :join/one)
+             (get args :join/many)))
+
   (cond
-    (indexed? params)
-    (first params)
+    (nil? t)
+    []
 
-    (dictionary? params)
-    (as-> (pairs params) ?
-          (map |(string (-> $ first snake-case) " " (where-op $ positional?)) ?)
-          (string/join ? " and "))
+    (indexed? t)
+    (map string t)
 
-    :else params))
+    :else [(string t)]))
 
 
-(defn fetch-options
-  "Takes a dictionary and returns order by, limit and offset sql bits"
-  [args]
-  (when args
-    (let [{:order order :limit limit :offset offset} args
-          order-by (when order (string "order by " order))
-          limit (when limit (string "limit " limit))
-          offset (when offset (string "offset " offset))]
-      (as-> [order-by limit offset] ?
-            (filter string? ?)
-            (string/join ? " ")))))
+(defn- join? [args]
+  (any? (join/tables args)))
 
 
-(defn from-join [columns from-table join-table]
+(defn- join/columns [schema tables]
+  (->> (table/slice schema tables)
+       (mapcat values)))
+
+
+(defn- join/select [args schema]
+  (def cols (->> (join/tables args)
+                 (join/columns schema)))
+
+  (as-> (join/tables args) ?
+        (join/columns schema ?)
+        (map |(string/format "%s as '%s'" $ (string/replace "." "/" $)) ?)
+        (string/join ? ", ")))
+
+
+(defn- join/line [from-table join-table schema]
   (when join-table
-    (def join-type (if (contains? (string join-table "_id") columns)
+    (def join-type (if (contains? (string from-table "." join-table "_id") (get schema from-table))
                      :one
                      :many))
 
     (def join-table (snake-case join-table))
     (def from-table (snake-case from-table))
-
     (case join-type
       :one
       (string/format "join %s on %s.id = %s.%s_id"
@@ -60,25 +128,55 @@
                      join-table join-table from-table from-table))))
 
 
+(defn- join [table-name args schema]
+  (as-> (join/tables args) ?
+        (map |(join/line table-name $ schema) ?)
+        (string/join ? " ")))
+
+
+(defn- select [table-name args schema]
+  (if (join? args)
+    (string "select " table-name ".*, " (join/select args schema))
+    (string "select *")))
+
+
+(defn- order-by [args]
+  (when-let [s (get args :order)]
+    (string "order by " s)))
+
+
+(defn- limit [args]
+  (when-let [s (get args :limit)]
+    (string "limit " s)))
+
+
+(defn- offset [args]
+  (when-let [s (get args :offset)]
+    (string "offset " s)))
+
+
 (defn from
-  "Takes a table name and where clause params and optional order/limit/offset options and returns a select sql string"
-  [table-name &opt args columns join-columns]
-  (default join-columns [])
-  (let [where-params (get args :where)
-        where (when where-params (string "where " (where-clause where-params true)))
-        select (if (args :join)
-                 (string "select "
-                         (snake-case table-name) ".*, "
-                         (-> (map |(string (snake-case (args :join)) "." $ " as '" (snake-case (args :join)) "/" $ "'") join-columns)
-                             (string/join ", ")))
-                 "select *")]
-    (as-> [(string select " from " (snake-case table-name))
-           (from-join columns table-name (args :join))
-           where
-           (fetch-options args)] ?
-          (filter string? ?)
-          (string/join ? " ")
-          (string/trim ?))))
+  "Takes a table name and where clause params and optional order/limit/offset and returns a select sql string"
+  [table-name &opt args schema]
+  (default args {})
+  (default schema [])
+
+  (let [table-name (snake-case table-name)
+
+        sql (as-> [(select table-name args schema) # select statement
+                   (string "from " table-name) # from
+                   (join table-name args schema) # join
+                   (where args) # where
+                   (order-by args) # order by
+                   (limit args) # limit
+                   (offset args)] ? # offset
+                  (filter present? ?)
+                  (string/join ? " ")
+                  (string/trim ?))
+
+        params (where/params args)]
+
+    [sql ;params]))
 
 
 (defn clone-inside
@@ -95,24 +193,24 @@
          (mapcat identity))))
 
 
-(defn join
+(defn fetch/join
   "Returns a join statement from a tuple"
   [[left right]]
   (string "join " left " on " left ".id = " right "." left "_id"))
 
 
-(defn fetch-joins
+(defn fetch/joins
   "Returns several join strings from an array of keywords"
   [keywords]
   (when (> (length keywords) 1)
     (as-> (clone-inside keywords) ?
           (partition 2 ?)
-          (map join ?)
+          (map fetch/join ?)
           (reverse ?)
           (string/join ? " "))))
 
 
-(defn fetch-params
+(defn fetch/params
   "Returns a table for a where clause of a 'fetch' sql string"
   [path]
   (->> (filter |(not (keyword? $)) path)
@@ -126,21 +224,24 @@
   [path &opt args]
   (let [keywords (->> (filter keyword? path)
                       (map snake-case))
-        ids (fetch-params path)
-        where (when (not (empty? ids))
+        ids (fetch/params path)
+        where (unless (empty? ids)
                 (string "where "
                   (as-> (partition 2 path) ?
                         (filter |(= 2 (length $)) ?)
                         (map |(string (-> $ first snake-case) ".id = ?") ?)
-                        (string/join ? " and "))))]
-    (as-> [(string/format "select %s.*" (last keywords))
-           "from"
-           (last keywords)
-           (fetch-joins keywords)
-           where
-           (fetch-options args)] ?
-          (filter string? ?)
-          (string/join ? " "))))
+                        (string/join ? " and "))))
+        sql (as-> [(string/format "select %s.*" (last keywords))
+                   (string "from " (last keywords))
+                   (fetch/joins keywords)
+                   where
+                   (order-by args)
+                   (limit args)
+                   (offset args)] ?
+                  (filter present? ?)
+                  (string/join ? " "))]
+
+    [sql ;ids]))
 
 
 (defn insert
@@ -149,11 +250,9 @@
   (let [columns (as-> (keys params) ?
                       (map snake-case ?)
                       (string/join ? ", "))
-        vals (as-> (keys params) ?
-                   (map snake-case ?)
-                   (map |(string ":" $) ?)
-                   (string/join ? ", "))]
-    (string "insert into " (snake-case table-name) " (" columns ") values (" vals ")")))
+        vals (?params params)]
+    [(string "insert into " (snake-case table-name) " (" columns ") values (" vals ")")
+     ;(sql-params params)]))
 
 
 (defn insert-all
@@ -163,72 +262,51 @@
                       (keys ?)
                       (map snake-case ?)
                       (string/join ? ", "))
-        vals (as-> (map keys arr) ?
-                   (mapcat (fn [ks] (string "(" (string/join
-                                                 (map (fn [_] (string "?")) ks)
-                                                 ",")
-                                            ")")) ?)
-                  (string/join ? ", "))]
-    (string "insert into " (snake-case table-name) " (" columns ") values " vals)))
+        vals (as-> (map ?params arr) ?
+                   (map |(string/format "(%s)" $) ?)
+                   (string/join ? ", "))]
+    [(string "insert into " (snake-case table-name) " (" columns ") values " vals)
+     ;(mapcat sql-params arr)]))
 
 
-(defn insert-all-params
-  "Returns an array of values from an array of dictionaries for the insert-all sql string"
-  [arr]
-  (mapcat values arr))
-
-
-(defn update-param [[key val]]
-  (let [column (snake-case key)
-        value (if (= 'null val)
-                "null"
-                (string/format ":%s" column))]
-    (string/format "%s = %s" column value)))
+(defn set-param [key]
+  (string (snake-case key) " = ?"))
 
 
 (defn update
   "Returns an update sql string from a dictionary of params representing the set portion of the update statement"
-  [table-name params]
-  (let [columns (as-> (pairs params) ?
-                      (map update-param ?)
-                      (string/join ? ", "))]
-    (string "update " (snake-case table-name) " set " columns " where id = :id")))
+  [table-name set-params where-params]
+  (let [columns (as-> (keys set-params) ?
+                      (filter (comp not pk?) ?)
+                      (map set-param ?)
+                      (string/join ? ", "))
+        sql (string "update " (snake-case table-name) " set " columns " " (where {:where where-params}))
+        set-params (sql-params set-params)
+        where-params (sql-params where-params)]
+    [sql ;set-params ;where-params]))
 
 
 (defn update-all
   "Returns an update sql string from two dictionaries representing the where clause and the set clause"
-  [table-name where-params set-params]
-  (let [columns (as-> (pairs set-params) ?
-                      (map |(string (first $) " = " (if (= 'null (last $))
-                                                      "null"
-                                                      (string "?"))) ?)
-                      (string/join ? ", "))]
-    (string "update " (snake-case table-name) " set " columns " where " (where-clause where-params true))))
-
-
-(defn update-all-params
-  "Returns an array of params for the update-all sql string"
-  [where-params set-params]
-  (array/concat
-    (values set-params)
-    (values where-params)))
+  [table-name set-params where-params]
+  (update table-name set-params where-params))
 
 
 (defn delete-all
   "Returns a delete sql string from a table name and value for the id column"
   [table-name params]
-  (let [where-params (get params :where)
-        where (when (truthy? where-params) (string "where " (where-clause where-params)))]
-    (as-> [(string "delete from " (snake-case table-name))
-           where
-           (fetch-options params)] ?
-          (filter truthy? ?)
-          (string/join ? " ")
-          (string/trimr ?))))
+  (def sql (as-> [(string "delete from " (snake-case table-name))
+                  (where params)
+                  (order-by params)
+                  (limit params)
+                  (offset params)] ?
+                 (filter present? ?)
+                 (string/join ? " ")))
+
+  [sql ;(where/params params)])
 
 
 (defn delete
   "Returns a delete sql string from a table name and value for the id column"
   [table-name id]
-  (string/trimr
-   (delete-all table-name {:where {:id id}})))
+  (delete-all table-name {:where {:id id}}))

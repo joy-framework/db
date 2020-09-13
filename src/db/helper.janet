@@ -195,3 +195,25 @@
           (set s (string s subst))
           (break))))
     s))
+
+
+(defn present? [val]
+  (and val (not (empty? val))))
+
+
+(defn blank? [val]
+  (not (present? val)))
+
+
+(defn dissoc [dict & ks]
+  (var t (merge-into @{} dict))
+
+  (loop [k :in ks]
+    (put t k nil))
+
+  t)
+
+
+(defn collect [ind & ks]
+  (->> (map |(table/slice $ ks) ind)
+       (map values)))

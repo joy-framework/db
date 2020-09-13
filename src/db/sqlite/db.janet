@@ -58,15 +58,23 @@
   => [{:id 1 :name "name"} {...} ...]`
   [sql &opt params table-name]
   (default params {})
-  (let [sql (string sql ";")
-        params (snake-case-keys params)
+  (let [params (snake-case-keys params)
         db (dyn :db/connection)]
-    (as-> (sqlite3/eval db sql params) ?
+    (as-> (sqlite3/eval db (string sql ";") params) ?
           (map kebab-case-keys ?)
           (map |(if table-name
                   (merge $ {:db/table (keyword table-name)})
                   $)
                ?))))
+
+
+(defn query2 [sql-vec table-name]
+  (let [sql (-> sql-vec first (string ";"))
+        params (drop 1 sql-vec)]
+
+    (->> (sqlite3/eval (dyn :db/connection) sql params)
+         (map kebab-case-keys)
+         (map |(put $ :db/table (keyword table-name))))))
 
 
 (defn execute
@@ -88,9 +96,17 @@
   => Returns the last inserted row id, in this case 1`
   [sql &opt params]
   (default params {})
-  (let [sql (string sql ";")
-        params (snake-case-keys params)
+  (let [params (snake-case-keys params)
         db (dyn :db/connection)]
+    (sqlite3/eval db (string sql ";") params)
+    (sqlite3/last-insert-rowid db)))
+
+
+(defn execute2 [sql-vec]
+  (let [db (dyn :db/connection)
+        sql (-> sql-vec first (string ";"))
+        params (drop 1 sql-vec)]
+
     (sqlite3/eval db sql params)
     (sqlite3/last-insert-rowid db)))
 
@@ -108,16 +124,15 @@
 
   => {:id 1 :name "name"}`
   [table-name rowid]
-  (let [params {:rowid rowid}
-        sql (sql/from table-name {:where params :limit 1})]
-    (as-> (query sql [rowid] table-name) ?
-          (get ? 0 {}))))
+  (-> (sql/from table-name {:where {:rowid rowid} :limit 1})
+      (query2 table-name)
+      (first)))
 
 
-(def schema-sql
+(def- schema-sql
   `select
     m.name as tbl,
-    pti.name as col
+    m.name || '.' || pti.name as col
   from sqlite_master m
   join pragma_table_info(m.name) pti on m.name != pti.name`)
 
@@ -140,11 +155,11 @@
 
   => {:id 1 :name "name"}`
   [path & args]
-  (let [args (table ;args)
-        sql (sql/fetch path (merge args {:limit 1}))
-        params (sql/fetch-params path)]
-    (as-> (query sql params (last (filter keyword? path))) ?
-          (get ? 0))))
+  (let [table-name (->> path (filter keyword?) last)]
+
+    (-> (sql/fetch path (put (table ;args) :limit 1))
+        (query2 table-name)
+        (first))))
 
 
 (defn fetch-all
@@ -162,57 +177,106 @@
 
   => [{:id 1 :tag-name "tag1"} {:id 2 :tag-name "tag2"}]`
   [path & args]
-  (let [sql (sql/fetch path (table ;args))
-        params (sql/fetch-params path)]
-    (query sql params (last (filter keyword? path)))))
+  (let [table-name (->> path (filter keyword?) last)]
+
+    (-> (sql/fetch path (struct ;args))
+        (query2 table-name))))
 
 
-(defn join/one? [opts]
-  (truthy? (opts :join/one)))
+(defn- tupleize [val]
+  (if (indexed? val)
+    val
+    [val]))
 
 
-(defn join-rows [table-columns join-columns join-table opts rows]
-  (def table-columns (->> (map kebab-case table-columns)
-                          (map keyword)))
-
-  (def join-columns (->> (map |(string join-table "/" $) join-columns)
-                         (map kebab-case)
-                         (map keyword)))
-
-  (def fk (if (join/one? opts)
-            (-> join-table (singular) (keyword))
-            (-> join-table (plural) (keyword))))
-
-  (defn singularize [rows]
-    (if (join/one? opts)
-      (first rows)
-      rows))
-
-  (defn gk [dict] (freeze (table/slice dict table-columns)))
-  (def grouped (group-by |(gk $) rows))
-
-  (->> rows
-       (map |(put $
-                  fk
-                  (->> (get grouped (gk $))
-                       (map (fn [r] (map-keys (fn [x] (keyword (string/replace (string join-table "/") "" x)))
-                                              (table/slice r join-columns))))
-                       (singularize))))
-       (map |(table/slice $ (array/push table-columns fk)))))
+(defn- janetize [s]
+  (-> (string/replace "." "/" s)
+      (kebab-case)
+      (keyword)))
 
 
-(defn where-params [val]
-  (def params (cond
-                (dictionary? val)
-                (->> (values val)
-                     (mapcat identity))
+(defn- strip-prefix [pfx s]
+  (-> (string/replace (string pfx "/") "" s)
+      (keyword)))
 
-                (indexed? val)
-                (drop 1 val)
 
-                :else []))
+(defn- join-columns [join-table schema]
+  (->> (get schema (snake-case join-table))
+       (map janetize)))
 
-  (filter (partial not= 'null) params))
+
+(defn- join-dict [row join-columns join-key db-table]
+  (as-> (table/slice row join-columns) ?
+        (map-keys |(strip-prefix db-table $) ?)
+        (put ? :db/table db-table)))
+
+
+(defn- join-one-row [row args schema]
+  (var output @{})
+
+  (let [join-tables (->> (get args :join/one [])
+                         (tupleize))]
+
+    (loop [join-table :in join-tables]
+
+      (let [join-columns (join-columns join-table schema)
+
+            join-key (-> join-table kebab-case singular keyword)
+
+            join-dict (join-dict row join-columns join-key join-key)
+
+            row (-> (put row join-key join-dict)
+                    (dissoc ;join-columns))]
+
+        (set output (merge output row)))))
+
+  output)
+
+
+(defn- join-one-rows [rows args schema]
+  (if (get args :join/one)
+    (map |(join-one-row $ args schema) rows)
+    rows))
+
+
+(defn- join-many-rows [rows args schema]
+  (if (or (nil? (get args :join/many))
+          (empty? (get args :join/many)))
+    rows
+
+    (do
+      (var output @{})
+
+      (let [join-tables (->> (get args :join/many)
+                             (tupleize))
+
+            table-name (-> rows first (get :db/table))
+
+            table-columns (as-> (get schema (snake-case table-name)) ?
+                                (array/push ? :db/table)
+                                (map |(->> $ janetize (strip-prefix table-name)) ?))
+
+            table-row (table/slice (first rows) table-columns)]
+
+        (loop [join-table :in join-tables]
+
+          (let [join-columns (join-columns join-table schema)
+
+                join-key (-> join-table kebab-case plural keyword)
+
+                join-table (-> join-table kebab-case keyword)
+
+                join-dicts (->> (map |(join-dict $ join-columns join-key join-table) rows)
+                                (map freeze)
+                                (distinct)
+                                (map |(merge-into @{} $)))
+
+                row (-> (put table-row join-key join-dicts)
+                        (dissoc ;join-columns))]
+
+            (set output (merge output row))))
+
+       @[output]))))
 
 
 (defn from
@@ -236,23 +300,12 @@
 
   => [{:id 1 name "name" :completed true} {:id 1 :name "name2" :completed true}]`
   [table-name & args]
-  (let [opts (table ;args)
-        join-table (or (opts :join)
-                       (opts :join/one)
-                       (opts :join/many)
-                       "")
-        schema (schema)
-        columns (get schema (snake-case table-name))
-        join-columns (get schema (snake-case join-table) [])
-        opts (merge opts {:join (or (opts :join/one) (opts :join/many) (opts :join))})
-        sql (sql/from table-name opts columns join-columns)
-        params (where-params (get opts :where))
-        rows (query sql params table-name)]
-
-    (if (or (opts :join/one)
-            (opts :join/many))
-      (join-rows columns join-columns join-table opts rows)
-      rows)))
+  (let [args (struct ;args)
+        schema (schema)]
+    (-> (sql/from table-name args schema)
+        (query2 table-name)
+        (join-one-rows args schema)
+        (join-many-rows args schema))))
 
 
 (defn find-by
@@ -271,23 +324,7 @@
 
   => {:id 1 name "name" :completed true}`
   [table-name & args]
-  (let [opts (table ;args)
-        join-table (or (opts :join)
-                       (opts :join/one)
-                       (opts :join/many)
-                       "")
-        schema (schema)
-        columns (get schema (snake-case table-name))
-        join-columns (get schema (snake-case join-table) [])
-        opts (merge opts {:join (or (opts :join/one) (opts :join/many) (opts :join))})
-        sql (sql/from table-name opts columns join-columns)
-        params (where-params (get opts :where))
-        rows (query sql params table-name)]
-    (first
-      (if (or (opts :join/one)
-              (opts :join/many))
-        (join-rows columns join-columns join-table opts rows)
-        rows))))
+  (first (from table-name ;args)))
 
 
 (defn find
@@ -302,9 +339,9 @@
 
   => {:id 1 name "name" :completed true}`
   [table-name id]
-  (let [sql (sql/from table-name {:where {:id id} :limit 1})
-        rows (query sql [id] table-name)]
-    (get rows 0)))
+  (-> (sql/from table-name {:where {:id id} :limit 1})
+      (query2 table-name)
+      (first)))
 
 
 (defn insert
@@ -335,9 +372,9 @@
       (set table-name (snake-case (get (args 0) :db/table)))
       (set params (put (table ;(kvs (args 0))) :db/table nil))))
 
-  (let [sql (sql/insert table-name params)]
-    (as-> (execute sql params) ?
-          (last-inserted table-name ?))))
+  (->> (sql/insert table-name params)
+       (execute2)
+       (last-inserted table-name)))
 
 
 (defn insert-all
@@ -352,19 +389,28 @@
   (db/insert-all :todo [{:name "name4"} {:name "name5"}])
 
   => @[@{:id 4 :name "name4" :completed false} @{:id 5 :name "name5" :completed false}]`
-  [table-name arr]
-  (let [sql (sql/insert-all table-name arr)
-        params (sql/insert-all-params arr)]
-    (execute sql params)
-    (reverse (query (string "select * from " (snake-case table-name) " order by rowid desc limit " (length arr))
-                    {}
-                    table-name))))
+  [table-name ind]
+  (->> (sql/insert-all table-name ind)
+       (execute2))
+
+  (reverse
+    (from table-name
+          :order "rowid desc"
+          :limit (length ind))))
 
 
-(defn get-id [val]
+(defn- get-id [val]
   (if (dictionary? val)
     (get val :id)
     val))
+
+
+(defn- put-updated-at [table-name set-params]
+  (let [schema (schema)]
+    (if (and (dictionary? schema)
+             (find-index |(= $ "updated_at") (get schema (snake-case table-name))))
+      (merge set-params {:updated-at (os/time)})
+      set-params)))
 
 
 (defn update
@@ -409,18 +455,17 @@
         (set params (args 1)))
       (do
         (set table-name (get (args 0) :db/table))
-        (set dict-or-id (args 0))
-        (set params (put (table ;(kvs (args 0))) :db/table nil)))))
+        (set dict-or-id (get (args 0) :id))
+        (-> (set params (merge-into @{} (args 0)))
+            (put :id nil)
+            (put :db/table nil)))))
 
   (let [sql-table-name (snake-case table-name)
-        schema (schema)
-        params (if (and (dictionary? schema)
-                        (find-index |(= $ "updated_at") (get schema sql-table-name)))
-                 (merge params {:updated-at (os/time)})
-                 params)
-        sql (sql/update table-name params)
-        id (get-id dict-or-id)]
-    (execute sql (merge params {:id id}))
+        params (table ;(kvs params))
+        id (get-id dict-or-id)
+        sql-vec (sql/update table-name (put-updated-at table-name params) {:id id})]
+
+    (execute2 sql-vec)
     (fetch [table-name id])))
 
 
@@ -433,22 +478,18 @@
 
   (import db)
 
-  (db/update-all :todo {:completed false} {:completed true})
+  (db/update-all :todo :set {:completed false} :where {:completed true})
 
   => @[@{:id 1 :completed true} ...]`
-  [table-name where-params set-params]
-  (let [rows (from table-name :where where-params)
-        sql (sql/update-all table-name where-params set-params)
-        schema (schema)
-        set-params (if (and (dictionary? schema)
-                            (find-index |(= $ "updated_at") (get schema (snake-case table-name))))
-                     (merge set-params {:updated-at (os/time)})
-                     set-params)
-        params (sql/update-all-params where-params set-params)]
-    (execute sql params)
-    (from table-name :where (as-> rows ?
-                                  (map |(table :id (get $ :id)) ?)
-                                  (apply merge ?)))))
+  [table-name & args]
+  (let [{:set set-params :where where-params} (struct ;args)
+        ids (->> (from table-name :where where-params)
+                 (map |(table/slice $ [:id]))
+                 (mapcat values))
+        sql-vec (sql/update-all table-name (put-updated-at table-name set-params) where-params)]
+
+    (execute2 sql-vec)
+    (from table-name :where {:id ids})))
 
 
 (defn delete
@@ -484,10 +525,11 @@
       (set dict-or-id (args 0))))
 
   (let [id (get-id dict-or-id)
-        row (fetch [table-name id])
-        sql (sql/delete table-name id)
-        params {:id id}]
-    (execute sql params)
+        row (fetch [table-name id])]
+
+    (-> (sql/delete table-name id)
+        (execute2))
+
     row))
 
 
@@ -507,10 +549,11 @@
   => @[@{:id 1 :title "title" :body "body" :draft true} ...]`
   [table-name & args]
   (let [params (table ;args)
-        where-params (get params :where {})
-        rows (from table-name ;args)
-        sql (sql/delete-all table-name params)]
-    (execute sql where-params)
+        rows (from table-name ;args)]
+
+    (-> (sql/delete-all table-name params)
+        (execute2))
+
     rows))
 
 
@@ -534,8 +577,7 @@
 
   => @{:id 1 :name "name"}`
   [sql & params]
-  (let [sql (string sql ";")]
-    (first (query sql params))))
+  (first (query sql params)))
 
 
 (defn val
@@ -551,11 +593,10 @@
 
   => "todo #1"`
   [sql & params]
-  (let [sql (string sql ";")]
-    (-> (query sql params)
-        (get 0 {})
-        (values)
-        (first))))
+  (-> (query sql params)
+      (get 0 {})
+      (values)
+      (first)))
 
 
 (defn all
@@ -571,5 +612,4 @@
 
   => @[@{:id 1 :tag-name "tag1"} @{:id 2 :tag-name "tag2"}]`
   [sql & params]
-  (let [sql (string sql ";")]
-    (query sql params)))
+  (query sql params))
