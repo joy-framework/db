@@ -1,3 +1,33 @@
+## db 0.4.0 (09/12/2020)
+
+Don't call it a rewrite (*Breaking Changes*)
+
+This commit was almost completely backwards compatible.
+
+One function changed signature because it was super confusing,
+
+update-all changed from
+
+(update-all :post {:id [1 2 3]} {:name "new name"})
+
+to
+
+(update-all :post :set {:name "new name"} :where {:id [1 2 3]})
+
+A bunch of other things changed too, a lot of functions are now
+private that should have been before, so that's technically a
+breaking change.
+
+The biggest feature that comes out of all this is multi table join,
+join/one and join/many!
+
+One less reason to drop down to sql!
+
+* 1a16723 - Don't call it a rewrite *Breaking Changes*
+* d077913 - Watch files and re-run tests
+* 690ad1e - Add indexed support to where clauses
+* c8cdb2f - Maintain order when using join/one join/many
+
 ## db 0.3.0 (06/25/2020)
 
 * 7f0442f - Update README <Sean Walker>
