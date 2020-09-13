@@ -13,3 +13,6 @@
 
 (declare-source
   :source @["src/db" "src/db.janet"])
+
+(phony "watch" []
+  (os/shell "find . -name '*.janet' | entr -r -d jpm test"))
