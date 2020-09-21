@@ -197,6 +197,6 @@
 
 
   (test "delete all"
-    (is (empty? (do
-                  (db/delete-all :post)
-                  (db/from :post))))))
+    (is (deep= @[] (do
+                     (db/delete-all :post)
+                     (db/from :post))))))
