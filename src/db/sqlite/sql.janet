@@ -57,17 +57,17 @@
 
 
 (defn- sql-params [val]
-  (def val (cond
-             (dictionary? val)
-             (->> (values val)
-                  (mapcat identity)
-                  (map nilify))
+  (cond
+    (dictionary? val)
+    (->> (values val)
+         (mapcat identity)
+         (map nilify))
 
-             (indexed? val)
-             (->> (drop 1 val)
-                  (map nilify))
+    (indexed? val)
+    (->> (drop 1 val)
+         (map nilify))
 
-             :else [])))
+    :else []))
 
 
 (defn- where/params [p]
