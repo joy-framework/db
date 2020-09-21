@@ -25,6 +25,32 @@
                (db/insert :post {:title "title 1" :author-id 1}))))
 
 
+  (test "upsert"
+    (is (deep= @{:id 1 :title "title 2" :db/table :post :author-id 1}
+               (db/insert :post
+                          {:title "title 1" :author-id 1 :id 1}
+                          :on-conflict :id
+                          :do :update
+                          :set {:title "title 2"}))))
+
+
+  (test "upsert again"
+    (is (deep= @{:id 1 :title "title 1" :db/table :post :author-id 1}
+               (db/insert :post
+                          {:title "title 1" :author-id 1 :id 1}
+                          :on-conflict :id
+                          :do :update
+                          :set {:title "title 1"}))))
+
+
+  (test "upsert with nothing"
+    (is (deep= @{:id 1 :title "title 1" :db/table :post :author-id 1}
+               (db/insert :post
+                          {:title "title 1" :author-id 1 :id 1}
+                          :on-conflict :id
+                          :do :nothing))))
+
+
   (test "insert-all tag table"
     (is (deep= @[@{:id 1 :name "tag 1" :db/table :tag :post-id 1} @{:id 2 :name "tag 2" :db/table :tag :post-id 1}]
                (db/insert-all :tag [{:name "tag 1" :post-id 1} {:name "tag 2" :post-id 1}]))))

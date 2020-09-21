@@ -359,20 +359,35 @@
 
   (db/insert {:db/table :todo :name "name3"})
 
+  # or
+
+  (db/insert {:db/table :todo :name "name3"} :on-conflict [:id])
+  (db/insert {:db/table :todo :name "name3"} :on-conflict :id :do :nothing)
+  (db/insert {:db/table :todo :name "name3"} :on-conflict :id :do :update :set {:name "name4"})
+
+  # or
+
+  (db/insert :todo {:name "name3"} :on-conflict [:id])
+  (db/insert :todo {:todo :name "name3"} :on-conflict :id :do :nothing)
+  (db/insert :todo {:todo :name "name3"} :on-conflict :id :do :update :set {:name "name4"})
+
   => @{:id 3 :name "name3" :completed false}`
   [& args]
   (var table-name nil)
   (var params nil)
+  (var options {})
 
-  (if (= 2 (length args))
+  (if (keyword? (args 0))
     (do
       (set table-name (args 0))
-      (set params (args 1)))
+      (set params (args 1))
+      (set options (struct ;(drop 2 args))))
     (do
       (set table-name (snake-case (get (args 0) :db/table)))
-      (set params (put (table ;(kvs (args 0))) :db/table nil))))
+      (set params (put (table ;(kvs (args 0))) :db/table nil))
+      (set options (struct ;(drop 1 args)))))
 
-  (->> (sql/insert table-name params)
+  (->> (sql/insert table-name params options)
        (execute2)
        (last-inserted table-name)))
 

@@ -244,15 +244,40 @@
     [sql ;ids]))
 
 
+(defn- set-param [key]
+  (string (snake-case key) " = ?"))
+
+
+(defn- on-conflict-clause [options]
+  (let [{:do do* :on-conflict on-conflict :update update* :set set-columns} options
+        conflict-columns (if (indexed? on-conflict)
+                           on-conflict
+                           [on-conflict])
+        conflict-columns-str (string "( " (string/join conflict-columns ", ") ")")
+        update* (when (= do* :update)
+                  (let [set-columns-str (-> (map set-param (keys set-columns))
+                                            (string/join ", "))]
+                    (string "set " set-columns-str)))]
+
+    (as-> ["on conflict" conflict-columns-str "do" do* update*] ?
+          (filter present? ?)
+          (string/join ? " "))))
+
+
 (defn insert
   "Returns an insert statement sql string from a dictionary"
-  [table-name params]
+  [table-name params &opt options]
+  (default options {})
+
   (let [columns (as-> (keys params) ?
                       (map snake-case ?)
                       (string/join ? ", "))
-        vals (?params params)]
-    [(string "insert into " (snake-case table-name) " (" columns ") values (" vals ")")
-     ;(sql-params params)]))
+        vals (?params params)
+        sql (string "insert into " (snake-case table-name) " (" columns ") values (" vals ")")
+        sql (if (options :on-conflict)
+              (string sql " " (on-conflict-clause options))
+              sql)]
+    [sql ;(array/concat (sql-params params) (if (options :set) (sql-params (options :set)) @[]))]))
 
 
 (defn insert-all
@@ -267,10 +292,6 @@
                    (string/join ? ", "))]
     [(string "insert into " (snake-case table-name) " (" columns ") values " vals)
      ;(mapcat sql-params arr)]))
-
-
-(defn set-param [key]
-  (string (snake-case key) " = ?"))
 
 
 (defn update
