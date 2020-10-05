@@ -17,7 +17,8 @@
 
 
 (defn- null? [val]
-  (= 'null val))
+  (or (= 'null val)
+      (= :null val)))
 
 
 (defn- nilify [val]
@@ -30,7 +31,7 @@
   "Takes tuples and returns a where clause 'part'"
   [[k v]]
   (cond
-    (= v 'null) "is null"
+    (null? v) "is null"
     (indexed? v) (string/format "in (%s)"
                                 (string/join (map (fn [_] "?") v) ","))
     :else (string "= ?")))
