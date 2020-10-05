@@ -74,7 +74,7 @@
 (defn- where/params [p]
   (->> (get p :where)
        (sql-params)
-       (filter (comp not null?))))
+       (filter (comp not nil?))))
 
 
 (defn- join/tables [args]
@@ -304,7 +304,8 @@
                       (string/join ? ", "))
         sql (string "update " (snake-case table-name) " set " columns " " (where {:where where-params}))
         set-params (sql-params set-params)
-        where-params (sql-params where-params)]
+        where-params (->> (sql-params where-params)
+                          (filter (comp not nil?)))]
     [sql ;set-params ;where-params]))
 
 

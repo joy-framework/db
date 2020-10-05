@@ -14,10 +14,18 @@
 (db/execute "create table if not exists tag (id integer primary key, name text, post_id integer)")
 (db/execute "create table if not exists comment (id integer primary key, body text, post_id integer)")
 
-(deftest
+# test insert first author
+(db/insert :author {:name "author 1"})
+
+(defsuite
+  (test "from with null where param"
+    (is (deep= @[]
+               (db/from :post :where {:title 'null}))))
+
+
   (test "insert another table"
     (is (deep= @{:id 1 :name "author 1" :db/table :author}
-               (db/insert :author {:name "author 1"}))))
+               (db/find :author 1))))
 
 
   (test "insert"
@@ -215,6 +223,21 @@
   (test "update-all"
     (is (deep= @[@{:id 4 :title "title 4" :body "body 4" :db/table :post}]
                (db/update-all :post :set {:title "title 4" :body "body 4"} :where {:title "title4"}))))
+
+
+  (test "update set to null"
+    (is (deep= @{:id 6 :body "body 6" :db/table :post}
+               (db/update :post 6 {:title :null}))))
+
+
+  (test "another from with null in where"
+    (is (deep= @[@{:id 6 :body "body 6" :db/table :post}]
+               (db/from :post :where {:title :null}))))
+
+
+  (test "update-all with null in where"
+    (is (deep= @[@{:id 6 :title "title 6" :body "body 6" :db/table :post}]
+               (db/update-all :post :set {:title "title 6"} :where {:title 'null}))))
 
 
   (test "delete one"
