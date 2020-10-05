@@ -247,36 +247,38 @@
     (do
       (var output @{})
 
-      (let [join-tables (->> (get args :join/many)
-                             (tupleize))
+      (let [table-name (-> rows first (get :db/table))]
 
-            table-name (-> rows first (get :db/table))
+        (if (nil? table-name)
+          @[]
+          (let [join-tables (->> (get args :join/many)
+                                 (tupleize))
 
-            table-columns (as-> (get schema (snake-case table-name)) ?
-                                (array/push ? :db/table)
-                                (map |(->> $ janetize (strip-prefix table-name)) ?))
+                table-columns (as-> (get schema (snake-case table-name)) ?
+                                    (array/push ? :db/table)
+                                    (map |(->> $ janetize (strip-prefix table-name)) ?))
 
-            table-row (table/slice (first rows) table-columns)]
+                table-row (table/slice (first rows) table-columns)]
 
-        (loop [join-table :in join-tables]
+            (loop [join-table :in join-tables]
 
-          (let [join-columns (join-columns join-table schema)
+              (let [join-columns (join-columns join-table schema)
 
-                join-key (-> join-table kebab-case plural keyword)
+                    join-key (-> join-table kebab-case plural keyword)
 
-                join-table (-> join-table kebab-case keyword)
+                    join-table (-> join-table kebab-case keyword)
 
-                join-dicts (->> (map |(join-dict $ join-columns join-key join-table) rows)
-                                (map freeze)
-                                (distinct)
-                                (map |(merge-into @{} $)))
+                    join-dicts (->> (map |(join-dict $ join-columns join-key join-table) rows)
+                                    (map freeze)
+                                    (distinct)
+                                    (map |(merge-into @{} $)))
 
-                row (-> (put table-row join-key join-dicts)
-                        (dissoc ;join-columns))]
+                    row (-> (put table-row join-key join-dicts)
+                            (dissoc ;join-columns))]
 
-            (set output (merge output row))))
+                (set output (merge output row))))
 
-       @[output]))))
+           @[output]))))))
 
 
 (defn from
