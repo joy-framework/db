@@ -76,11 +76,12 @@
 
 
 (defn- file-migration-map []
-  (->> (os/dir migrations-dir)
+  (as-> (os/dir migrations-dir) ?
+       (filter |(string/has-suffix? ".sql" $) ?)
        (mapcat |(tuple (-> (string/split "-" $)
                            (first))
-                       $))
-       (apply struct)))
+                       $) ?)
+       (apply struct ?)))
 
 
 (defn- db-versions []
