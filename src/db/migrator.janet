@@ -60,7 +60,7 @@
 
 (def- up-token "-- up")
 (def- down-token "-- down")
-(def- migrations-dir "db/migrations")
+(defn- migrations-dir (or (dyn :db/migration-dir) "db/migrations"))
 
 
 (defn- parse-migration [sql]
@@ -76,7 +76,7 @@
 
 
 (defn- file-migration-map []
-  (as-> (os/dir migrations-dir) ?
+  (as-> (os/dir (migrations-dir)) ?
        (filter |(string/has-suffix? ".sql" $) ?)
        (mapcat |(tuple (-> (string/split "-" $)
                            (first))
@@ -108,7 +108,7 @@
       (loop [migration :in migrations]
         (let [version (-> (string/split "-" migration)
                           (first))
-              filename (path/join migrations-dir migration)
+              filename (path/join (migrations-dir) migration)
               up (as-> filename ?
                        (file/read-all ?)
                        (parse-migration ?)
@@ -132,7 +132,7 @@
     (when-let [versions (db-versions)
                version (get (reverse versions) 0)
                migration (get (file-migration-map) version)
-               filename (string migrations-dir "/" migration)
+               filename (string (migrations-dir) "/" migration)
                down (as-> filename ?
                           (file/read-all ?)
                           (parse-migration ?)
