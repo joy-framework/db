@@ -60,7 +60,7 @@
 
 (def- up-token "-- up")
 (def- down-token "-- down")
-(defn- migrations-dir (or (dyn :db/migration-dir) "db/migrations"))
+(defn- migrations-dir [] (or (dyn :db/migration-dir) "db/migrations"))
 
 
 (defn- parse-migration [sql]
@@ -77,11 +77,11 @@
 
 (defn- file-migration-map []
   (as-> (os/dir (migrations-dir)) ?
-       (filter |(string/has-suffix? ".sql" $) ?)
-       (mapcat |(tuple (-> (string/split "-" $)
-                           (first))
-                       $) ?)
-       (apply struct ?)))
+        (filter |(string/has-suffix? ".sql" $) ?)
+        (mapcat |(tuple (-> (string/split "-" $)
+                            (first))
+                        $) ?)
+        (apply struct ?)))
 
 
 (defn- db-versions []
