@@ -1,6 +1,6 @@
 (import tester :prefix "" :exit true)
-(import "src/db/sqlite/db" :as db)
-(import "src/db/helper" :prefix "")
+(import /src/db/sqlite/db :as db)
+(import /src/db/helper :prefix "")
 
 (db/connect "test.sqlite3")
 
