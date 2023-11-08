@@ -52,7 +52,7 @@
 
 
   (test "upsert with nothing"
-    (is (deep= @{:id 1 :title "title 1" :db/table :post :author-id 1}
+    (is (deep= nil
                (db/insert :post
                           {:title "title 1" :author-id 1 :id 1}
                           :on-conflict :id
@@ -244,6 +244,21 @@
     (is (deep= @{:id 6 :title "title 6" :body "body 6" :db/table :post}
                (db/delete :post 6))))
 
+  (test "insert new row"
+    (is (deep= @{:id 8 :title "title 2" :db/table :post :author-id 2}
+               (db/insert :post {:title "title 2" :author-id 2}))))
+
+  (test "insert new row"
+    (is (deep= @{:id 9 :title "title 2" :db/table :post :author-id 2}
+               (db/insert :post {:title "title 2" :author-id 2}))))
+
+  (test "upsert second to last row inserted, expecting to get back the relevant row updated"
+    (is (deep= @{:id 8 :title "title 1" :db/table :post :author-id 2}
+               (db/insert :post
+                          {:title "title 1" :author-id 2 :id 8}
+                          :on-conflict :id
+                          :do :update
+                          :set {:title "title 1"}))))
 
   (test "delete all"
     (is (deep= @[] (do

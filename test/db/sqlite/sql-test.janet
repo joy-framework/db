@@ -26,22 +26,22 @@
 
 
   (test "insert"
-    (is (= ["insert into account (name) values (?)" "joy"]
+    (is (= ["insert into account (name) values (?) returning *" "joy"]
            (sql/insert :account {:name "joy"}))))
 
 
   (test "insert with multiple params"
-    (is (= ["insert into account (password, name) values (?, ?)" "secret" "joy"]
+    (is (= ["insert into account (password, name) values (?, ?) returning *" "secret" "joy"]
            (sql/insert :account {:name "joy" :password "secret"}))))
 
 
   (test "insert with null param"
-    (is (= ["insert into account (name) values (?)" nil]
+    (is (= ["insert into account (name) values (?) returning *" nil]
            (sql/insert :account {:name 'null}))))
 
 
   (test "insert with multiple params with dashes"
-    (is (= ["insert into account (password, name, created_at) values (?, ?, ?)"
+    (is (= ["insert into account (password, name, created_at) values (?, ?, ?) returning *"
             "secret" "joy" "created-at"]
            (sql/insert :account {:name "joy" :password "secret" :created-at "created-at"}))))
 

@@ -277,7 +277,8 @@
         sql (string "insert into " (snake-case table-name) " (" columns ") values (" vals ")")
         sql (if (options :on-conflict)
               (string sql " " (on-conflict-clause options))
-              sql)]
+              sql)
+        sql (string sql " returning *")]
     [sql ;(array/concat (sql-params params) (if (options :set) (sql-params (options :set)) @[]))]))
 
 

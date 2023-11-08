@@ -389,10 +389,9 @@
       (set params (put (table ;(kvs (args 0))) :db/table nil))
       (set options (struct ;(drop 1 args)))))
 
-  (->> (sql/insert table-name params options)
-       (execute2)
-       (last-inserted table-name)))
-
+  (-> (sql/insert table-name params options)
+      (query2 table-name)
+      (get 0)))
 
 (defn insert-all
   `Takes an optional db connection, a table name and an array of dictionaries,
