@@ -46,7 +46,7 @@ db supports two databases
 Run this command to create a sqlite database in the current directory
 
 ```sh
-db create database:sqlite todos_dev.sqlite3
+db new database:sqlite todos_dev.sqlite3
 ```
 
 `todos_dev.sqlite3` can be any name
@@ -56,7 +56,7 @@ db create database:sqlite todos_dev.sqlite3
 Run this command to create a postgres database, assuming a running postgres server and a `createdb` cli script in the current `PATH`
 
 ```sh
-db create database:postgres todos_dev
+db new database:postgres todos_dev
 ```
 
 ## Migrations
@@ -66,7 +66,7 @@ Creating migrations happens with the same cli program which should get installed
 Note: Make sure you have the janet module `bin` folder in your `PATH`.
 
 ```sh
-db create migration 'create-table-todos'
+db new migration 'create-table-todos'
 ```
 
 This should create a new folder in your current directory named `db/migrations` and in that folder, there should be an empty `.sql` file named `<long-number>-create-table-todos.sql`:
@@ -79,7 +79,7 @@ This should create a new folder in your current directory named `db/migrations` 
 We can do a little better than that though:
 
 ```sh
-db create table 'todos' 'name text not null' 'completed-at datetime'
+db new table 'todos' 'name text not null' 'completed-at datetime'
 ```
 
 This should create a new sql file that looks like this:

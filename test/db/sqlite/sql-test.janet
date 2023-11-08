@@ -1,5 +1,5 @@
 (import tester :prefix "" :exit true)
-(import "src/db/sqlite/sql" :as sql)
+(import /src/db/sqlite/sql :as sql)
 
 (deftest
   (test "from"

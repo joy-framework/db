@@ -1,8 +1,8 @@
 (import tester :prefix "" :exit true)
 
 (if (string/has-prefix? "postgres" (or (os/getenv "DATABASE_URL") ""))
-  (import "src/db/pg/db" :as db)
-  (import "src/db/sqlite/db" :as db))
+  (import /src/db/pg/db :as db)
+  (import /src/db/sqlite/db :as db))
 
 
 (when (string/has-prefix? "postgres" (or (os/getenv "DATABASE_URL") ""))
